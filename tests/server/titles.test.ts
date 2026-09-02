@@ -63,4 +63,13 @@ describe('compareEntries', () => {
     expect(compareEntries(entrada({ name: 'archivo2' }), entrada({ name: 'archivo10' }))).toBeLessThan(0)
     expect(compareEntries(entrada({ name: 'Beta' }), entrada({ name: 'alfa' }))).toBeGreaterThan(0)
   })
+
+  it('compara order y prefixOrder en la misma escala entre elementos distintos', () => {
+    expect(compareEntries(entrada({ order: 3 }), entrada({ prefixOrder: 1 }))).toBeGreaterThan(0)
+    expect(compareEntries(entrada({ order: 3 }), entrada({ prefixOrder: 10 }))).toBeLessThan(0)
+  })
+
+  it('da prioridad a order sobre prefixOrder en un mismo elemento', () => {
+    expect(compareEntries(entrada({ order: 1, prefixOrder: 99 }), entrada({ order: 2, prefixOrder: 1 }))).toBeLessThan(0)
+  })
 })
