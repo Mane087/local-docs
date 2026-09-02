@@ -1,6 +1,6 @@
 import fs from 'node:fs/promises'
 import matter from 'gray-matter'
-import MarkdownIt from 'markdown-it'
+import MarkdownIt, { type MarkdownIt as MarkdownItInstance } from 'markdown-it'
 import anchor from 'markdown-it-anchor'
 import { createHighlighter, type Highlighter } from 'shiki'
 
@@ -65,7 +65,7 @@ function separarFrontmatter(source: string): {
   }
 }
 
-function extraerEncabezados(md: MarkdownIt, content: string): Heading[] {
+function extraerEncabezados(md: MarkdownItInstance, content: string): Heading[] {
   const tokens = md.parse(content, {})
   const headings: Heading[] = []
   const usados = new Map<string, number>()
@@ -86,7 +86,7 @@ function extraerEncabezados(md: MarkdownIt, content: string): Heading[] {
   return headings
 }
 
-function extraerTextoPlano(md: MarkdownIt, content: string): string {
+function extraerTextoPlano(md: MarkdownItInstance, content: string): string {
   const tokens = md.parse(content, {})
   const partes: string[] = []
   for (const token of tokens) {
@@ -121,7 +121,7 @@ export async function createRenderer(): Promise<Renderer> {
   const enlacePorDefecto = md.renderer.rules.link_open
   md.renderer.rules.link_open = (tokens, idx, options, env, self) => {
     const token = tokens[idx]
-    const href = token?.attrGet('href') ?? ''
+    const href = String(token?.attrGet('href') ?? '')
     if (/^https?:\/\//i.test(href)) {
       token?.attrSet('target', '_blank')
       token?.attrSet('rel', 'noopener noreferrer')
