@@ -1,0 +1,25 @@
+{
+  "name": "local-docs",
+  "version": "0.1.0",
+  "description": "",
+  "directories": {},
+  "scripts": {
+    "test": "vitest run",
+    "build": "tsc -p tsconfig.json && vite build"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "module",
+  "bin": {
+    "local-docs": "./dist/cli.js"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "devDependencies": {
+    "@types/node": "^26.4.1",
+    "typescript": "^7.0.2",
+    "vitest": "^4.1.11"
+  }
+}
