@@ -199,6 +199,19 @@ describe('enlaces simbolicos', () => {
 
     expect(b.children.map((n) => n.path)).toEqual(['a/b/doc.md'])
   })
+
+  it('usa un enlace simbolico llamado index.md como documento indice del directorio', async () => {
+    const raiz = await crearRaiz({ 'guia/objetivo.md': '# Objetivo real', 'guia/uso.md': '# Uso' })
+    await fs.symlink(path.join(raiz, 'guia', 'objetivo.md'), path.join(raiz, 'guia', 'index.md'), 'file')
+
+    const { nodes } = await buildTree(raiz)
+    const directorio = nodes.find((n) => n.path === 'guia') as DirectoryNode
+
+    expect(directorio.hasIndex).toBe(true)
+    expect(directorio.indexPath).toBe('guia/index.md')
+    expect(directorio.title).toBe('Objetivo real')
+    expect(directorio.children.map((n) => n.path)).toEqual(['guia/objetivo.md', 'guia/uso.md'])
+  })
 })
 
 describe('findFirstDocument', () => {

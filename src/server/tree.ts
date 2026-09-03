@@ -1,6 +1,6 @@
 import fs from 'node:fs/promises'
 import path from 'node:path'
-import { constants } from 'node:fs'
+import { constants, type Dirent } from 'node:fs'
 import { readHeadMetadata } from './renderer.js'
 import { safeJoin } from './paths.js'
 import { compareEntries, humanizeName, stripOrderPrefix, type SortableEntry } from './titles.js'
@@ -105,6 +105,37 @@ async function resolverDestinoDeEnlace(rutaAbsoluta: string, raizReal: string): 
   return safeJoin(raizReal, relativoAlDestino) === null ? null : destinoReal
 }
 
+interface Clasificacion {
+  esDirectorio: boolean
+  esArchivo: boolean
+}
+
+// Determina si una entrada del directorio (archivo, directorio o enlace
+// simbolico) debe tratarse como directorio o como archivo. Para un enlace
+// simbolico, resuelve y valida su destino con resolverDestinoDeEnlace y usa el
+// tipo del destino; se reutiliza tanto para elegir el documento indice de un
+// directorio como para el recorrido principal, de modo que un enlace roto o
+// fuera de la raiz se descarta de la misma forma en ambos sitios.
+async function clasificarEntrada(
+  entrada: Dirent,
+  rutaAbsoluta: string,
+  raizReal: string,
+): Promise<Clasificacion | null> {
+  if (!entrada.isSymbolicLink()) {
+    return { esDirectorio: entrada.isDirectory(), esArchivo: entrada.isFile() }
+  }
+
+  const destinoReal = await resolverDestinoDeEnlace(rutaAbsoluta, raizReal)
+  if (destinoReal === null) return null // enlace roto o destino fuera de la raiz
+
+  try {
+    const estadisticas = await fs.stat(rutaAbsoluta)
+    return { esDirectorio: estadisticas.isDirectory(), esArchivo: estadisticas.isFile() }
+  } catch {
+    return null // el destino desaparecio entre resolverlo y volver a acceder
+  }
+}
+
 async function construirNivel(
   root: string,
   relativo: string,
@@ -118,7 +149,21 @@ async function construirNivel(
   const absoluto = path.join(root, relativo)
   const entradas = await fs.readdir(absoluto, { withFileTypes: true })
 
-  const nombresDeArchivo = entradas.filter((e) => e.isFile() && !esExcluido(e.name)).map((e) => e.name)
+  // Se clasifica cada entrada una sola vez (siguiendo los enlaces simbolicos
+  // que correspondan) para poder elegir el documento indice del directorio
+  // -que puede ser un enlace a un markdown- sin repetir la resolucion al
+  // procesar esa misma entrada mas abajo, en el recorrido principal.
+  const clasificaciones = new Map<string, Clasificacion | null>()
+  const nombresDeArchivo: string[] = []
+  for (const entrada of entradas) {
+    if (esExcluido(entrada.name)) continue
+    const rutaRelativa = relativo === '' ? entrada.name : `${relativo}/${entrada.name}`
+    const rutaAbsoluta = path.join(root, rutaRelativa)
+    const clasificacion = await clasificarEntrada(entrada, rutaAbsoluta, raizReal)
+    clasificaciones.set(entrada.name, clasificacion)
+    if (clasificacion?.esArchivo) nombresDeArchivo.push(entrada.name)
+  }
+
   const indice = elegirIndice(nombresDeArchivo)
   let tituloIndice: string | null = null
 
@@ -130,24 +175,10 @@ async function construirNivel(
     const rutaAbsoluta = path.join(root, rutaRelativa)
     const { prefixOrder } = stripOrderPrefix(entrada.name)
 
-    let esDirectorio = entrada.isDirectory()
-    let esArchivo = entrada.isFile()
+    const clasificacion = clasificaciones.get(entrada.name) ?? null
+    if (clasificacion === null) continue // enlace roto o destino fuera de la raiz
 
-    if (entrada.isSymbolicLink()) {
-      const destinoReal = await resolverDestinoDeEnlace(rutaAbsoluta, raizReal)
-      if (destinoReal === null) continue // enlace roto o destino fuera de la raiz
-
-      let estadisticas
-      try {
-        estadisticas = await fs.stat(rutaAbsoluta)
-      } catch {
-        continue // el destino desaparecio entre resolverlo y volver a acceder
-      }
-      esDirectorio = estadisticas.isDirectory()
-      esArchivo = estadisticas.isFile()
-    }
-
-    if (esDirectorio) {
+    if (clasificacion.esDirectorio) {
       // Se resuelve la ruta real (siga o no un enlace simbolico) para detectar
       // ciclos: un enlace que apunte a un directorio ya visitado (un ancestro,
       // por ejemplo) se omite en vez de recorrerse de nuevo.
@@ -177,7 +208,7 @@ async function construirNivel(
       continue
     }
 
-    if (!esArchivo || !esDocumento(entrada.name)) continue
+    if (!clasificacion.esArchivo || !esDocumento(entrada.name)) continue
 
     const metadatos = await metadatosDeDocumento(rutaAbsoluta, entrada.name)
 
