@@ -16,6 +16,7 @@ export class DocumentError extends Error {
 
 export interface CachedDocument extends RenderedDocument {
   mtimeMs: number
+  size: number
 }
 
 export class DocumentCache {
@@ -55,7 +56,7 @@ export class DocumentCache {
     if (!info.isFile()) throw new DocumentError('not-found')
 
     const existente = this.entradas.get(relPath)
-    if (existente && existente.mtimeMs === info.mtimeMs) return existente
+    if (existente && existente.mtimeMs === info.mtimeMs && existente.size === info.size) return existente
 
     let source: string
     try {
@@ -64,7 +65,7 @@ export class DocumentCache {
       throw new DocumentError('unreadable')
     }
 
-    const documento: CachedDocument = { ...this.renderer.render(source), mtimeMs: info.mtimeMs }
+    const documento: CachedDocument = { ...this.renderer.render(source), mtimeMs: info.mtimeMs, size: info.size }
     this.entradas.set(relPath, documento)
     return documento
   }

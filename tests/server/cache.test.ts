@@ -99,4 +99,21 @@ describe('DocumentCache', () => {
 
     await expect(cache.get('imagen.png')).rejects.toBeInstanceOf(DocumentError)
   })
+
+  it('detecta cambio de tamaño aunque el mtime sea igual', async () => {
+    const raiz = await crearRaiz()
+    const archivo = path.join(raiz, 'doc.md')
+    await fs.writeFile(archivo, '# Original')
+    const cache = new DocumentCache(raiz, renderer)
+    await cache.get('doc.md')
+
+    const stat1 = await fs.stat(archivo)
+    const mtime1 = stat1.mtime
+
+    await fs.writeFile(archivo, '# Modificado Contenido Mas Largo')
+    await fs.utimes(archivo, mtime1, mtime1)
+
+    const actualizado = await cache.get('doc.md')
+    expect(actualizado.html).toContain('Modificado Contenido Mas Largo')
+  })
 })
