@@ -110,6 +110,21 @@ describe('GET /api/doc', () => {
   })
 })
 
+describe('rutas malformadas', () => {
+  it('devuelve 400 ante un porcentaje de codificacion invalido y el servidor sigue respondiendo', async () => {
+    const { base } = await levantar({ 'doc.md': '# Doc' })
+
+    const respuestaMalformada = await fetch(`${base}/api/doc/%E0%A4%A`)
+
+    expect(respuestaMalformada.status).toBe(400)
+    expect(await respuestaMalformada.json()).toEqual({ error: 'bad-request' })
+
+    const respuestaValida = await fetch(`${base}/api/doc/doc.md`)
+
+    expect(respuestaValida.status).toBe(200)
+  })
+})
+
 describe('GET /api/search', () => {
   it('devuelve resultados con fragmentos', async () => {
     const { base } = await levantar({ 'doc.md': '# Doc\n\nRequiere Node 20 o superior.' })

@@ -137,8 +137,15 @@ export function createServer(deps: ServerDeps): http.Server {
       return
     }
 
-    const url = new URL(req.url ?? '/', 'http://localhost')
-    const ruta = decodeURIComponent(url.pathname)
+    let url: URL
+    let ruta: string
+    try {
+      url = new URL(req.url ?? '/', 'http://localhost')
+      ruta = decodeURIComponent(url.pathname)
+    } catch {
+      responderJson(res, 400, { error: 'bad-request' })
+      return
+    }
 
     try {
       if (ruta === '/api/tree') {
