@@ -146,7 +146,7 @@ archivo tiene ambos, se usa el del frontmatter y se ignora su prefijo.
 
 ### 5.1 Stack
 
-- Node.js 20 o superior, TypeScript, módulos ESM.
+- Node.js 20.19 o superior, TypeScript, módulos ESM.
 - Servidor sobre `node:http` nativo. El número de rutas es reducido y no
   justifica un framework.
 - Cliente Preact compilado con Vite. El paquete npm se publica con el cliente ya
