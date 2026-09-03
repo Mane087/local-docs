@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'preact/hooks'
 import { ApiError, fetchDoc, fetchTree } from '../api.js'
-import { onRouteChange, routeFromLocation, type Route } from '../router.js'
+import { navigateTo, onRouteChange, routeFromLocation, type Route } from '../router.js'
 import type { DocResponse, TreeResponse } from '../types.js'
+import { Sidebar } from './Sidebar.js'
 
 type EstadoDocumento =
   | { estado: 'cargando' }
@@ -40,7 +41,19 @@ export function App() {
   return (
     <div class="disposicion">
       <aside class="sidebar">
-        {arbolError ? 'No se pudo cargar el indice de documentacion.' : arbol === null ? 'Cargando...' : arbol.root}
+        {arbolError ? (
+          'No se pudo cargar el indice de documentacion.'
+        ) : arbol === null ? (
+          <p>Cargando indice...</p>
+        ) : (
+          <Sidebar
+            nodes={arbol.tree}
+            rootTitle={arbol.rootTitle}
+            rootIndex={arbol.rootIndex}
+            currentPath={ruta.docPath ?? arbol.defaultDoc}
+            onNavigate={(destino) => navigateTo(destino)}
+          />
+        )}
       </aside>
       <main class="contenido">
         {arbolError ? (
