@@ -97,6 +97,12 @@ Los directorios se listan antes que los documentos del mismo nivel. Los
 elementos sin `order` ni prefijo numérico se ordenan alfabéticamente después de
 los que sí lo tienen.
 
+`order` y el prefijo numérico expresan la misma magnitud, la posición dentro del
+nivel, y se comparan en la misma escala: un documento con `order: 3` y otro
+llamado `01-intro.md` se ordenan como 3 y 1, no en grupos separados. El `order`
+del frontmatter tiene prioridad únicamente dentro de un mismo elemento: si un
+archivo tiene ambos, se usa el del frontmatter y se ignora su prefijo.
+
 ### 4.5 Documento índice de un directorio
 
 - Si un directorio contiene `index.md` o `README.md` (en ese orden de
