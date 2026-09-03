@@ -23,11 +23,12 @@ interface Cambio {
   relPath: string
 }
 
-export function startWatcher(deps: WatcherDeps): { close(): Promise<void> } {
+export function startWatcher(deps: WatcherDeps): { close(): Promise<void>; ready: Promise<void> } {
   const debounceMs = deps.debounceMs ?? 120
   const pendientes: Cambio[] = []
   let temporizador: NodeJS.Timeout | null = null
   let raizDisponible = true
+  let listo = false
 
   const programar = (): void => {
     if (temporizador !== null) clearTimeout(temporizador)
@@ -95,21 +96,35 @@ export function startWatcher(deps: WatcherDeps): { close(): Promise<void> } {
     persistent: true,
   })
 
+  // Los eventos del escaneo inicial de chokidar (antes de 'ready') se descartan: durante
+  // ese escaneo un archivo creado o borrado por el propio llamador puede quedar mal
+  // clasificado (un alta reportada como 'change') o perderse por completo (un borrado del
+  // que chokidar nunca llega a enterarse). A partir de 'ready' el observador es fiable.
   for (const tipo of ['add', 'change', 'unlink', 'addDir', 'unlinkDir'] as const) {
     observador.on(tipo, (rutaAbsoluta: string) => {
+      if (!listo) return
       pendientes.push({ tipo, relPath: toRelative(deps.root, rutaAbsoluta) })
       programar()
     })
   }
 
   observador.on('unlinkDir', (rutaAbsoluta: string) => {
+    if (!listo) return
     if (path.resolve(rutaAbsoluta) === path.resolve(deps.root)) {
       pendientes.push({ tipo: 'unlinkDir', relPath: '' })
       programar()
     }
   })
 
+  const listoPromise = new Promise<void>((resolve) => {
+    observador.once('ready', () => {
+      listo = true
+      resolve()
+    })
+  })
+
   return {
+    ready: listoPromise,
     async close(): Promise<void> {
       if (temporizador !== null) clearTimeout(temporizador)
       await observador.close()

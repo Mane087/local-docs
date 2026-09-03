@@ -42,6 +42,7 @@ async function montar(archivos: Record<string, string>) {
 
   await tree.get()
   const watcher = startWatcher({ root: raiz, cache, index, tree, events, debounceMs: 20 })
+  await watcher.ready
 
   limpiezas.push(async () => {
     await watcher.close()
