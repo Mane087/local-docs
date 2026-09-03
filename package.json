@@ -15,7 +15,7 @@
     "local-docs": "./dist/cli.js"
   },
   "engines": {
-    "node": ">=20"
+    "node": ">=20.19.0"
   },
   "devDependencies": {
     "@types/markdown-it": "^14.2.0",

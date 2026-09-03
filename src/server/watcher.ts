@@ -29,12 +29,21 @@ export function startWatcher(deps: WatcherDeps): { close(): Promise<void>; ready
   let temporizador: NodeJS.Timeout | null = null
   let raizDisponible = true
   let listo = false
+  // Serializa los lotes: cada llamada a procesar() se encadena sobre la anterior, de modo
+  // que nunca hay dos ejecuciones concurrentes (SearchIndex.build() no es seguro ante
+  // llamadas solapadas, ya que reasigna su motor interno sin bloqueo). close() espera esta
+  // cadena para no dejar trabajo en vuelo.
+  let cadena: Promise<void> = Promise.resolve()
 
   const programar = (): void => {
     if (temporizador !== null) clearTimeout(temporizador)
     temporizador = setTimeout(() => {
       temporizador = null
-      void procesar(pendientes.splice(0, pendientes.length))
+      const lote = pendientes.splice(0, pendientes.length)
+      cadena = cadena.then(
+        () => procesar(lote),
+        () => procesar(lote),
+      )
     }, debounceMs)
   }
 
@@ -60,9 +69,16 @@ export function startWatcher(deps: WatcherDeps): { close(): Promise<void>; ready
     }
 
     if (!estructuraAfectada) {
+      const resultadoActual = await deps.tree.get()
+      const titulos = new Map(
+        collectDocuments(resultadoActual.nodes, resultadoActual.rootIndex, resultadoActual.rootTitle).map(
+          (documento) => [documento.path, documento.title] as const,
+        ),
+      )
       for (const cambio of cambios) {
         if (EXTENSIONES.has(path.extname(cambio.relPath).toLowerCase())) {
-          await deps.index.update(cambio.relPath, cambio.relPath)
+          const titulo = titulos.get(cambio.relPath) ?? path.basename(cambio.relPath)
+          await deps.index.update(cambio.relPath, titulo)
         }
       }
       return
@@ -128,6 +144,7 @@ export function startWatcher(deps: WatcherDeps): { close(): Promise<void>; ready
     async close(): Promise<void> {
       if (temporizador !== null) clearTimeout(temporizador)
       await observador.close()
+      await cadena
     },
   }
 }

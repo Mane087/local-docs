@@ -23,7 +23,12 @@ afterEach(async () => {
   }
 })
 
-async function montar(archivos: Record<string, string>) {
+interface OpcionesMontar {
+  debounceMs?: number
+  crearIndex?: (cache: DocumentCache) => SearchIndex
+}
+
+async function montar(archivos: Record<string, string>, opciones: OpcionesMontar = {}) {
   const raiz = await fs.realpath(await fs.mkdtemp(path.join(os.tmpdir(), 'local-docs-watcher-')))
   for (const [relativo, contenido] of Object.entries(archivos)) {
     const destino = path.join(raiz, relativo)
@@ -33,7 +38,7 @@ async function montar(archivos: Record<string, string>) {
 
   const cache = new DocumentCache(raiz, renderer)
   const tree = createTreeProvider(raiz)
-  const index = new SearchIndex(cache)
+  const index = opciones.crearIndex ? opciones.crearIndex(cache) : new SearchIndex(cache)
   const events = new EventHub()
   const emitidos: DocsEvent[] = []
   vi.spyOn(events, 'emit').mockImplementation((evento) => {
@@ -41,7 +46,7 @@ async function montar(archivos: Record<string, string>) {
   })
 
   await tree.get()
-  const watcher = startWatcher({ root: raiz, cache, index, tree, events, debounceMs: 20 })
+  const watcher = startWatcher({ root: raiz, cache, index, tree, events, debounceMs: opciones.debounceMs ?? 20 })
   await watcher.ready
 
   limpiezas.push(async () => {
@@ -49,7 +54,7 @@ async function montar(archivos: Record<string, string>) {
     await fs.rm(raiz, { recursive: true, force: true })
   })
 
-  return { raiz, cache, tree, emitidos }
+  return { raiz, cache, tree, index, emitidos, watcher }
 }
 
 async function esperarEvento(
@@ -65,6 +70,46 @@ async function esperarEvento(
       throw new Error(`no llego el evento ${tipo}. Recibidos: ${emitidos.map((e) => e.type).join(', ')}`)
     }
     await new Promise((resolver) => setTimeout(resolver, 25))
+  }
+}
+
+async function esperarCondicion(condicion: () => boolean, tiempoLimite = 4000): Promise<void> {
+  const inicio = Date.now()
+  for (;;) {
+    if (condicion()) return
+    if (Date.now() - inicio > tiempoLimite) {
+      throw new Error('la condicion no se cumplio a tiempo')
+    }
+    await new Promise((resolver) => setTimeout(resolver, 25))
+  }
+}
+
+// Retrasa solo la PRIMERA llamada a build(). Con eso, si un segundo lote se procesa sin
+// esperar a que termine el primero (sin serializacion), su build() se ejecuta y reasigna
+// el motor mientras el primero sigue dormido, y al despertar el primero lo vuelve a
+// pisar con su propia foto (mas vieja) del arbol: el segundo build se pierde por completo.
+// Con la serializacion en su sitio, el segundo build ni siquiera arranca hasta que el
+// primero termina del todo, así que nunca compiten por el mismo motor.
+// `llamadas` es publico a proposito: el test espera activamente a que el primer build()
+// ya haya arrancado (y por tanto ya haya tomado su foto del arbol) antes de provocar el
+// segundo cambio, en vez de confiar en un tiempo fijo frente al escaneo real de disco.
+class IndiceConRetraso extends SearchIndex {
+  llamadas = 0
+
+  constructor(
+    cache: DocumentCache,
+    private readonly retrasoPrimeraLlamadaMs: number,
+  ) {
+    super(cache)
+  }
+
+  override async build(documentos: Array<{ path: string; title: string }>): Promise<void> {
+    const esPrimera = this.llamadas === 0
+    this.llamadas += 1
+    if (esPrimera) {
+      await new Promise((resolver) => setTimeout(resolver, this.retrasoPrimeraLlamadaMs))
+    }
+    await super.build(documentos)
   }
 }
 
@@ -106,5 +151,72 @@ describe('startWatcher', () => {
     await fs.rm(raiz, { recursive: true, force: true })
 
     await esperarEvento(emitidos, 'root-unavailable')
+  })
+
+  it('actualiza el titulo real en el indice al editar un documento sin cambio estructural', async () => {
+    const { raiz, index } = await montar({ 'doc.md': '---\ntitle: Titulo Original\n---\n# Original' })
+
+    await fs.writeFile(path.join(raiz, 'doc.md'), '---\ntitle: Titulo Original\n---\n# Modificado con novedades')
+
+    await esperarCondicion(() => index.search('novedades').length > 0)
+    const [resultado] = index.search('novedades')
+    expect(resultado?.path).toBe('doc.md')
+    expect(resultado?.title).toBe('Titulo Original')
+  })
+
+  it('mantiene el indice coherente ante rafagas solapadas', async () => {
+    let indiceRetrasado: IndiceConRetraso | undefined
+    const { raiz, index, emitidos } = await montar(
+      { 'doc.md': '# Doc', 'borrar.md': '# Borrar' },
+      {
+        debounceMs: 15,
+        crearIndex: (cache) => {
+          indiceRetrasado = new IndiceConRetraso(cache, 300)
+          return indiceRetrasado
+        },
+      },
+    )
+    if (!indiceRetrasado) throw new Error('crearIndex no se invoco')
+
+    await fs.rm(path.join(raiz, 'borrar.md'))
+    // Espera activamente a que el primer lote ya haya entrado a build() (y por tanto ya
+    // haya tomado su foto del arbol, sin 'nuevo.md') antes de provocar el segundo lote,
+    // mientras el primero sigue dormido dentro del retardo artificial.
+    await esperarCondicion(() => indiceRetrasado!.llamadas >= 1)
+    await fs.writeFile(path.join(raiz, 'nuevo.md'), '# Nuevo con contenido')
+
+    await esperarCondicion(() => emitidos.filter((evento) => evento.type === 'tree-changed').length >= 2, 6000)
+
+    expect(index.search('doc').map((r) => r.path)).toContain('doc.md')
+    expect(index.search('nuevo').map((r) => r.path)).toContain('nuevo.md')
+    expect(index.search('borrar').map((r) => r.path)).not.toContain('borrar.md')
+  })
+
+  it('close espera el trabajo en curso y no queda nada pendiente que emita eventos', async () => {
+    let indiceRetrasado: IndiceConRetraso | undefined
+    const { raiz, emitidos, watcher } = await montar(
+      { 'doc.md': '# Doc' },
+      {
+        debounceMs: 15,
+        crearIndex: (cache) => {
+          indiceRetrasado = new IndiceConRetraso(cache, 150)
+          return indiceRetrasado
+        },
+      },
+    )
+    if (!indiceRetrasado) throw new Error('crearIndex no se invoco')
+
+    await fs.writeFile(path.join(raiz, 'nuevo.md'), '# Nuevo')
+    // Espera activamente a que el procesamiento ya haya entrado a build() (retrasado, en
+    // curso) antes de cerrar, para garantizar que close() atrapa trabajo realmente en vuelo.
+    await esperarCondicion(() => indiceRetrasado!.llamadas >= 1)
+
+    await watcher.close()
+
+    expect(emitidos.some((evento) => evento.type === 'tree-changed')).toBe(true)
+    const cantidadAlCerrar = emitidos.length
+
+    await new Promise((resolver) => setTimeout(resolver, 300))
+    expect(emitidos.length).toBe(cantidadAlCerrar)
   })
 })
