@@ -53,7 +53,14 @@ function separarFrontmatter(source: string): {
   warnings: string[]
 } {
   try {
-    const resultado = matter(source)
+    // Se pasa un objeto de opciones (aunque vacio) para desactivar la cache
+    // interna de gray-matter, indexada por el contenido de origen: si un mismo
+    // texto con frontmatter invalido se parsea dos veces en el proceso (por
+    // ejemplo, una vez desde tree.ts al leer solo la cabecera y otra vez aqui
+    // al renderizar el documento completo), esa cache guarda una entrada
+    // parcial de la primera llamada -la que lanzo la excepcion- y la segunda
+    // llamada la reutiliza sin volver a lanzar, perdiendo el aviso.
+    const resultado = matter(source, {})
     return {
       content: resultado.content,
       frontmatter: (resultado.data ?? {}) as Record<string, unknown>,
