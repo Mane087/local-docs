@@ -31,6 +31,18 @@ function normalizar(texto: string): string {
   return texto.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
 }
 
+function esSubrogadoBajo(codigo: number): boolean {
+  return codigo >= 0xdc00 && codigo <= 0xdfff
+}
+
+// Si el limite cae justo sobre el subrogado bajo de un par (es decir, entre el
+// subrogado alto en `indice - 1` y el bajo en `indice`), lo desplaza un lugar
+// hacia el exterior del fragmento para no partir el caracter multibyte.
+function ajustarLimite(texto: string, indice: number, haciaAfuera: -1 | 1): number {
+  if (indice <= 0 || indice >= texto.length) return indice
+  return esSubrogadoBajo(texto.charCodeAt(indice)) ? indice + haciaAfuera : indice
+}
+
 function construirFragmentos(texto: string, terminos: string[]): string[] {
   const plano = texto.replace(/\s+/g, ' ').trim()
   const normalizado = normalizar(plano)
@@ -41,8 +53,8 @@ function construirFragmentos(texto: string, terminos: string[]): string[] {
     const posicion = normalizado.indexOf(normalizar(termino))
     if (posicion === -1) continue
 
-    const inicio = Math.max(0, posicion - CONTEXTO)
-    const fin = Math.min(plano.length, posicion + termino.length + CONTEXTO)
+    const inicio = ajustarLimite(plano, Math.max(0, posicion - CONTEXTO), -1)
+    const fin = ajustarLimite(plano, Math.min(plano.length, posicion + termino.length + CONTEXTO), 1)
     const antes = escaparHtml(plano.slice(inicio, posicion))
     const coincidencia = escaparHtml(plano.slice(posicion, posicion + termino.length))
     const despues = escaparHtml(plano.slice(posicion + termino.length, fin))

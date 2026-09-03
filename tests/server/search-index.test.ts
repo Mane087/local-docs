@@ -71,6 +71,23 @@ describe('SearchIndex', () => {
     expect(resultados[0]?.fragments[0]?.length).toBeLessThan(300)
   })
 
+  it('no corta un emoji al construir el fragmento cuando el limite de contexto cae en medio del par subrogado', async () => {
+    const emojiInicial = '😀'
+    const emojiFinal = '🎉'
+    const contenido = emojiInicial + 'x'.repeat(79) + 'buscada' + 'x'.repeat(79) + emojiFinal
+    const raiz = await crearRaiz({ 'doc.md': '# Doc\n\n' + contenido })
+    const index = new SearchIndex(new DocumentCache(raiz, renderer))
+    await index.build([{ path: 'doc.md', title: 'Doc' }])
+
+    const resultados = index.search('buscada')
+    const fragmento = resultados[0]?.fragments[0] ?? ''
+
+    for (const caracter of fragmento) {
+      const codigo = caracter.codePointAt(0) ?? 0
+      expect(codigo < 0xd800 || codigo > 0xdfff).toBe(true)
+    }
+  })
+
   it('escapa el html del contenido en los fragmentos', async () => {
     const raiz = await crearRaiz({ 'doc.md': '# Doc\n\nUsa `<script>alerta</script>` peligroso.' })
     const index = new SearchIndex(new DocumentCache(raiz, renderer))
