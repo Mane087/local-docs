@@ -65,6 +65,38 @@ describe('render', () => {
     expect(resultado.html).toContain('target="_blank"')
     expect(resultado.html).toContain('rel="noopener noreferrer"')
   })
+
+  it('desambigua encabezados con texto repetido y coincide con los anclas del html', () => {
+    const resultado = renderer.render('# Titulo\n\n## Titulo')
+    expect(resultado.headings).toEqual([
+      { level: 1, id: 'titulo', text: 'Titulo' },
+      { level: 2, id: 'titulo-1', text: 'Titulo' },
+    ])
+    expect(resultado.html).toContain('id="titulo"')
+    expect(resultado.html).toContain('id="titulo-1"')
+  })
+
+  it('desambigua encabezados cuando el texto ya produce un slug con sufijo', () => {
+    const resultado = renderer.render('# Titulo\n\n## Titulo 1\n\n### Titulo')
+
+    const ids = resultado.headings.map((h) => h.id)
+    expect(new Set(ids).size).toBe(3)
+
+    for (const heading of resultado.headings) {
+      expect(resultado.html).toContain(`id="${heading.id}"`)
+    }
+  })
+
+  it('no filtra encabezados entre documentos distintos renderizados en secuencia', () => {
+    const primero = renderer.render('# Uno\n\n## Dos')
+    const segundo = renderer.render('# Tres')
+
+    expect(primero.headings).toEqual([
+      { level: 1, id: 'uno', text: 'Uno' },
+      { level: 2, id: 'dos', text: 'Dos' },
+    ])
+    expect(segundo.headings).toEqual([{ level: 1, id: 'tres', text: 'Tres' }])
+  })
 })
 
 describe('readHeadMetadata', () => {

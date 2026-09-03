@@ -1,6 +1,6 @@
 import fs from 'node:fs/promises'
 import matter from 'gray-matter'
-import MarkdownIt, { type MarkdownIt as MarkdownItInstance } from 'markdown-it'
+import MarkdownIt, { type Token } from 'markdown-it'
 import anchor from 'markdown-it-anchor'
 import { createHighlighter, type Highlighter } from 'shiki'
 
@@ -65,29 +65,7 @@ function separarFrontmatter(source: string): {
   }
 }
 
-function extraerEncabezados(md: MarkdownItInstance, content: string): Heading[] {
-  const tokens = md.parse(content, {})
-  const headings: Heading[] = []
-  const usados = new Map<string, number>()
-
-  for (let i = 0; i < tokens.length; i += 1) {
-    const token = tokens[i]
-    if (!token || token.type !== 'heading_open') continue
-    const texto = tokens[i + 1]?.content ?? ''
-    const base = slugify(texto)
-    const repeticiones = usados.get(base) ?? 0
-    usados.set(base, repeticiones + 1)
-    headings.push({
-      level: Number(token.tag.slice(1)),
-      id: repeticiones === 0 ? base : `${base}-${repeticiones}`,
-      text: texto,
-    })
-  }
-  return headings
-}
-
-function extraerTextoPlano(md: MarkdownItInstance, content: string): string {
-  const tokens = md.parse(content, {})
+function extraerTextoPlano(tokens: Token[]): string {
   const partes: string[] = []
   for (const token of tokens) {
     if (token.type === 'inline') partes.push(token.content)
@@ -116,7 +94,23 @@ export async function createRenderer(): Promise<Renderer> {
     },
   })
 
-  md.use(anchor, { slugify, tabIndex: false })
+  // markdown-it-anchor es la unica fuente de verdad para los ids de encabezado:
+  // el callback recoge, durante el propio parse, el id final que asigna el
+  // plugin (con su desambiguacion por conjunto global), en vez de recalcularlo
+  // por separado con un algoritmo que podria divergir del que termina en el HTML.
+  let encabezadosDelParseActual: Heading[] = []
+
+  md.use(anchor, {
+    slugify,
+    tabIndex: false,
+    callback(token, info) {
+      encabezadosDelParseActual.push({
+        level: Number(token.tag.slice(1)),
+        id: info.slug,
+        text: info.title,
+      })
+    },
+  })
 
   const enlacePorDefecto = md.renderer.rules.link_open
   md.renderer.rules.link_open = (tokens, idx, options, env, self) => {
@@ -134,13 +128,16 @@ export async function createRenderer(): Promise<Renderer> {
   return {
     render(source: string): RenderedDocument {
       const { content, frontmatter, warnings } = separarFrontmatter(source)
-      const headings = extraerEncabezados(md, content)
+      encabezadosDelParseActual = []
+      const env = {}
+      const tokens = md.parse(content, env)
+      const headings = encabezadosDelParseActual
       const primero = headings.find((h) => h.level === 1)
       return {
-        html: md.render(content),
+        html: md.renderer.render(tokens, md.options, env),
         headings,
         frontmatter,
-        plainText: extraerTextoPlano(md, content),
+        plainText: extraerTextoPlano(tokens),
         firstH1: primero ? primero.text : null,
         warnings,
       }
