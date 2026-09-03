@@ -142,6 +142,65 @@ describe('buildTree', () => {
   })
 })
 
+describe('enlaces simbolicos', () => {
+  it('sigue un enlace simbolico a un documento markdown dentro de la raiz', async () => {
+    const raiz = await crearRaiz({ 'objetivo.md': '# Objetivo real' })
+    await fs.symlink(path.join(raiz, 'objetivo.md'), path.join(raiz, 'atajo.md'), 'file')
+
+    const { nodes } = await buildTree(raiz)
+
+    expect(nodes.find((n) => n.path === 'atajo.md')).toEqual({
+      type: 'document',
+      path: 'atajo.md',
+      title: 'Objetivo real',
+      readable: true,
+    })
+  })
+
+  it('sigue un enlace simbolico a un directorio dentro de la raiz', async () => {
+    const raiz = await crearRaiz({ 'real/uso.md': '# Uso real' })
+    await fs.symlink(path.join(raiz, 'real'), path.join(raiz, 'atajo'), 'dir')
+
+    const { nodes } = await buildTree(raiz)
+    const enlace = nodes.find((n) => n.path === 'atajo') as DirectoryNode
+
+    expect(enlace.type).toBe('directory')
+    expect(enlace.children.map((n) => n.path)).toEqual(['atajo/uso.md'])
+  })
+
+  it('omite un enlace simbolico cuyo destino queda fuera de la raiz', async () => {
+    const fuera = await fs.realpath(await fs.mkdtemp(path.join(os.tmpdir(), 'local-docs-fuera-')))
+    temporales.push(fuera)
+    await fs.writeFile(path.join(fuera, 'externo.md'), '# Externo')
+    const raiz = await crearRaiz({ 'inicio.md': '# Inicio' })
+    await fs.symlink(path.join(fuera, 'externo.md'), path.join(raiz, 'enlace-externo.md'), 'file')
+
+    const { nodes } = await buildTree(raiz)
+
+    expect(nodes.map((n) => n.path)).toEqual(['inicio.md'])
+  })
+
+  it('omite un enlace simbolico roto sin romper la construccion del arbol', async () => {
+    const raiz = await crearRaiz({ 'inicio.md': '# Inicio' })
+    await fs.symlink(path.join(raiz, 'no-existe.md'), path.join(raiz, 'roto.md'), 'file')
+
+    const { nodes } = await buildTree(raiz)
+
+    expect(nodes.map((n) => n.path)).toEqual(['inicio.md'])
+  })
+
+  it('no entra en recursion infinita si un enlace simbolico apunta a un directorio ancestro', async () => {
+    const raiz = await crearRaiz({ 'a/b/doc.md': '# Doc' })
+    await fs.symlink(path.join(raiz, 'a'), path.join(raiz, 'a', 'b', 'vuelta'), 'dir')
+
+    const { nodes } = await buildTree(raiz)
+    const a = nodes.find((n) => n.path === 'a') as DirectoryNode
+    const b = a.children.find((n) => n.path === 'a/b') as DirectoryNode
+
+    expect(b.children.map((n) => n.path)).toEqual(['a/b/doc.md'])
+  })
+})
+
 describe('findFirstDocument', () => {
   it('devuelve el primer documento en el orden del arbol', async () => {
     const raiz = await crearRaiz({ 'guia/uso.md': '# Uso', 'zeta.md': '# Zeta' })

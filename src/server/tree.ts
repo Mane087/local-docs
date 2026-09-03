@@ -2,6 +2,7 @@ import fs from 'node:fs/promises'
 import path from 'node:path'
 import { constants } from 'node:fs'
 import { readHeadMetadata } from './renderer.js'
+import { safeJoin } from './paths.js'
 import { compareEntries, humanizeName, stripOrderPrefix, type SortableEntry } from './titles.js'
 
 const EXTENSIONES = new Set(['.md', '.markdown'])
@@ -90,7 +91,26 @@ function elegirIndice(nombres: string[]): string | null {
   return null
 }
 
-async function construirNivel(root: string, relativo: string): Promise<{
+// Resuelve el destino real de un enlace simbolico y comprueba que quede
+// contenido dentro de la raiz. Devuelve null si el enlace esta roto o si su
+// destino cae fuera de la raiz (en cuyo caso la entrada se omite).
+async function resolverDestinoDeEnlace(rutaAbsoluta: string, raizReal: string): Promise<string | null> {
+  let destinoReal: string
+  try {
+    destinoReal = await fs.realpath(rutaAbsoluta)
+  } catch {
+    return null
+  }
+  const relativoAlDestino = path.relative(raizReal, destinoReal)
+  return safeJoin(raizReal, relativoAlDestino) === null ? null : destinoReal
+}
+
+async function construirNivel(
+  root: string,
+  relativo: string,
+  raizReal: string,
+  visitados: Set<string>,
+): Promise<{
   nodos: TreeNode[]
   indice: string | null
   tituloIndice: string | null
@@ -110,8 +130,37 @@ async function construirNivel(root: string, relativo: string): Promise<{
     const rutaAbsoluta = path.join(root, rutaRelativa)
     const { prefixOrder } = stripOrderPrefix(entrada.name)
 
-    if (entrada.isDirectory()) {
-      const hijo = await construirNivel(root, rutaRelativa)
+    let esDirectorio = entrada.isDirectory()
+    let esArchivo = entrada.isFile()
+
+    if (entrada.isSymbolicLink()) {
+      const destinoReal = await resolverDestinoDeEnlace(rutaAbsoluta, raizReal)
+      if (destinoReal === null) continue // enlace roto o destino fuera de la raiz
+
+      let estadisticas
+      try {
+        estadisticas = await fs.stat(rutaAbsoluta)
+      } catch {
+        continue // el destino desaparecio entre resolverlo y volver a acceder
+      }
+      esDirectorio = estadisticas.isDirectory()
+      esArchivo = estadisticas.isFile()
+    }
+
+    if (esDirectorio) {
+      // Se resuelve la ruta real (siga o no un enlace simbolico) para detectar
+      // ciclos: un enlace que apunte a un directorio ya visitado (un ancestro,
+      // por ejemplo) se omite en vez de recorrerse de nuevo.
+      let rutaReal: string
+      try {
+        rutaReal = await fs.realpath(rutaAbsoluta)
+      } catch {
+        continue
+      }
+      if (visitados.has(rutaReal)) continue
+      visitados.add(rutaReal)
+
+      const hijo = await construirNivel(root, rutaRelativa, raizReal, visitados)
       if (hijo.nodos.length === 0 && hijo.indice === null) continue
       const indicePath = hijo.indice === null ? null : `${rutaRelativa}/${hijo.indice}`
       pendientes.push({
@@ -128,7 +177,7 @@ async function construirNivel(root: string, relativo: string): Promise<{
       continue
     }
 
-    if (!entrada.isFile() || !esDocumento(entrada.name)) continue
+    if (!esArchivo || !esDocumento(entrada.name)) continue
 
     const metadatos = await metadatosDeDocumento(rutaAbsoluta, entrada.name)
 
@@ -153,7 +202,9 @@ async function construirNivel(root: string, relativo: string): Promise<{
 }
 
 export async function buildTree(root: string): Promise<TreeResult> {
-  const nivel = await construirNivel(root, '')
+  const raizReal = await fs.realpath(root)
+  const visitados = new Set<string>([raizReal])
+  const nivel = await construirNivel(root, '', raizReal, visitados)
   return { nodes: nivel.nodos, rootIndex: nivel.indice, rootTitle: nivel.tituloIndice }
 }
 
