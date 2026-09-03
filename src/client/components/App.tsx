@@ -10,13 +10,16 @@ type EstadoDocumento =
 
 export function App() {
   const [arbol, setArbol] = useState<TreeResponse | null>(null)
+  const [arbolError, setArbolError] = useState(false)
   const [ruta, setRuta] = useState<Route>(() => routeFromLocation(window.location))
   const [documento, setDocumento] = useState<EstadoDocumento>({ estado: 'cargando' })
 
   useEffect(() => onRouteChange(setRuta), [])
 
   useEffect(() => {
-    void fetchTree().then(setArbol)
+    fetchTree()
+      .then(setArbol)
+      .catch(() => setArbolError(true))
   }, [])
 
   useEffect(() => {
@@ -36,9 +39,13 @@ export function App() {
 
   return (
     <div class="disposicion">
-      <aside class="sidebar">{arbol === null ? 'Cargando...' : arbol.root}</aside>
+      <aside class="sidebar">
+        {arbolError ? 'No se pudo cargar el indice de documentacion.' : arbol === null ? 'Cargando...' : arbol.root}
+      </aside>
       <main class="contenido">
-        {documento.estado === 'listo' ? (
+        {arbolError ? (
+          <p>No se pudo cargar el indice de documentacion.</p>
+        ) : documento.estado === 'listo' ? (
           <div dangerouslySetInnerHTML={{ __html: documento.documento.html }} />
         ) : documento.estado === 'cargando' ? (
           <p>Cargando documento...</p>
