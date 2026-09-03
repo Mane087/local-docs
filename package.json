@@ -18,9 +18,14 @@
     "node": ">=20.19.0"
   },
   "devDependencies": {
+    "@preact/preset-vite": "^2.10.6",
+    "@testing-library/preact": "^3.2.4",
     "@types/markdown-it": "^14.2.0",
     "@types/node": "^26.4.1",
+    "happy-dom": "^20.13.2",
+    "preact": "^10.29.8",
     "typescript": "^7.0.2",
+    "vite": "^8.2.2",
     "vitest": "^4.1.11"
   },
   "dependencies": {

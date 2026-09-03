@@ -1,0 +1,62 @@
+:root {
+  --espacio-1: 4px;
+  --espacio-2: 8px;
+  --espacio-3: 12px;
+  --espacio-4: 16px;
+  --espacio-5: 24px;
+  --espacio-6: 32px;
+  --espacio-7: 48px;
+  --espacio-8: 64px;
+
+  --texto-xs: 12px;
+  --texto-sm: 14px;
+  --texto-base: 16px;
+  --texto-lg: 18px;
+  --texto-xl: 20px;
+  --texto-2xl: 24px;
+  --texto-3xl: 30px;
+  --texto-4xl: 36px;
+
+  --peso-normal: 400;
+  --peso-fuerte: 600;
+
+  --radio: 6px;
+  --ancho-sidebar: 280px;
+  --ancho-toc: 240px;
+  --ancho-lectura: 70ch;
+
+  --fuente-texto: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  --fuente-mono: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace;
+
+  --fondo: hsl(210 20% 98%);
+  --fondo-elevado: hsl(0 0% 100%);
+  --fondo-sutil: hsl(210 20% 94%);
+  --borde: hsl(212 16% 87%);
+  --texto-principal: hsl(213 24% 16%);
+  --texto-secundario: hsl(213 12% 42%);
+  --texto-terciario: hsl(213 10% 58%);
+  --acento: hsl(215 78% 46%);
+  --acento-suave: hsl(215 78% 94%);
+  --marca: hsl(48 96% 78%);
+  --marca-texto: hsl(28 74% 20%);
+  --aviso-fondo: hsl(40 90% 94%);
+  --aviso-texto: hsl(30 70% 26%);
+  --error-texto: hsl(2 62% 42%);
+}
+
+:root[data-tema='oscuro'] {
+  --fondo: hsl(215 26% 12%);
+  --fondo-elevado: hsl(215 24% 16%);
+  --fondo-sutil: hsl(215 22% 20%);
+  --borde: hsl(215 18% 28%);
+  --texto-principal: hsl(210 26% 92%);
+  --texto-secundario: hsl(212 14% 70%);
+  --texto-terciario: hsl(212 12% 56%);
+  --acento: hsl(213 86% 70%);
+  --acento-suave: hsl(215 40% 24%);
+  --marca: hsl(45 60% 34%);
+  --marca-texto: hsl(45 90% 88%);
+  --aviso-fondo: hsl(35 40% 22%);
+  --aviso-texto: hsl(40 80% 82%);
+  --error-texto: hsl(2 70% 72%);
+}
