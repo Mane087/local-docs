@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import fs from 'node:fs/promises'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { spawn } from 'node:child_process'
@@ -14,6 +15,7 @@ import { startWatcher } from './server/watcher.js'
 
 const PUERTO_POR_OMISION = 4180
 const HOST_POR_OMISION = '127.0.0.1'
+const VERSION_POR_OMISION = '0.0.0'
 
 export interface CliOptions {
   dir?: string
@@ -117,6 +119,21 @@ export function formatRootError(resolution: Extract<RootResolution, { ok: false 
   }
 }
 
+// El modulo se ejecuta tanto compilado (dist/cli.js) como sin compilar
+// (src/cli.ts); en ambos casos package.json esta en el directorio padre del
+// que contiene este archivo, asi que se resuelve siempre relativo a la
+// ubicacion del propio modulo y nunca contra el cwd del usuario.
+async function leerVersion(): Promise<string> {
+  try {
+    const rutaPkg = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'package.json')
+    const contenido = await fs.readFile(rutaPkg, 'utf8')
+    const pkg = JSON.parse(contenido) as { version?: unknown }
+    return typeof pkg.version === 'string' ? pkg.version : VERSION_POR_OMISION
+  } catch {
+    return VERSION_POR_OMISION
+  }
+}
+
 function abrirNavegador(url: string): void {
   const comando =
     process.platform === 'darwin' ? 'open' : process.platform === 'win32' ? 'start' : 'xdg-open'
@@ -136,7 +153,7 @@ export async function run(
     return 0
   }
   if (parsed.kind === 'version') {
-    io.stdout('0.1.0')
+    io.stdout(await leerVersion())
     return 0
   }
   if (parsed.kind === 'error') {

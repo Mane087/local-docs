@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest'
-import { formatRootError, parseArgs } from '../src/cli.js'
+import fs from 'node:fs/promises'
+import path from 'node:path'
+import { fileURLToPath } from 'node:url'
+import { formatRootError, parseArgs, run } from '../src/cli.js'
 
 describe('parseArgs', () => {
   it('usa los valores por omision', () => {
@@ -43,6 +46,23 @@ describe('parseArgs', () => {
 
   it('rechaza --dir sin valor', () => {
     expect(parseArgs(['--dir'])).toEqual({ kind: 'error', message: 'La opcion --dir necesita una ruta' })
+  })
+})
+
+describe('run --version', () => {
+  it('imprime exactamente la version declarada en package.json', async () => {
+    const rutaPkg = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../package.json')
+    const pkg = JSON.parse(await fs.readFile(rutaPkg, 'utf8')) as { version: string }
+
+    const salidas: string[] = []
+    const codigo = await run(['--version'], {
+      cwd: process.cwd(),
+      stdout: (linea) => salidas.push(linea),
+      stderr: () => {},
+    })
+
+    expect(codigo).toBe(0)
+    expect(salidas).toEqual([pkg.version])
   })
 })
 
