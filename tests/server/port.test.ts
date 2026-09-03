@@ -17,9 +17,11 @@ describe('findAvailablePort', () => {
     await new Promise<void>((resolver) => ocupado.listen(0, '127.0.0.1', resolver))
     const puerto = (ocupado.address() as net.AddressInfo).port
 
-    const elegido = await findAvailablePort(puerto, '127.0.0.1')
-
-    expect(elegido).toBeGreaterThan(puerto)
-    await new Promise<void>((resolver) => ocupado.close(() => resolver()))
+    try {
+      const elegido = await findAvailablePort(puerto, '127.0.0.1')
+      expect(elegido).toBeGreaterThan(puerto)
+    } finally {
+      await new Promise<void>((resolver) => ocupado.close(() => resolver()))
+    }
   })
 })

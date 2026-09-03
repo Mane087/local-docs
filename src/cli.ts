@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import fs from 'node:fs/promises'
+import type { Server } from 'node:http'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { spawn } from 'node:child_process'
@@ -134,6 +135,24 @@ async function leerVersion(): Promise<string> {
   }
 }
 
+// El arranque del servidor no puede confiar en que el puerto siga libre entre
+// la comprobacion de findAvailablePort y este listen: si algo lo ocupa
+// mientras tanto, http.Server emite 'error' y, sin un listener, Node lo trata
+// como una excepcion no capturada y aborta el proceso. Este helper registra
+// ese listener solo durante el arranque y lo retira en cuanto la escucha
+// tiene exito, para no quedarse capturando en silencio errores posteriores
+// del servidor ya en marcha.
+export function escucharServidor(servidor: Server, puerto: number, host: string): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const alError = (error: Error): void => reject(error)
+    servidor.once('error', alError)
+    servidor.listen(puerto, host, () => {
+      servidor.removeListener('error', alError)
+      resolve()
+    })
+  })
+}
+
 function abrirNavegador(url: string): void {
   const comando =
     process.platform === 'darwin' ? 'open' : process.platform === 'win32' ? 'start' : 'xdg-open'
@@ -178,7 +197,17 @@ export async function run(
   const clientDir = path.join(path.dirname(fileURLToPath(import.meta.url)), 'client')
 
   const servidor = createServer({ root, cache, index, tree, events, clientDir })
-  const puerto = await findAvailablePort(options.port, options.host)
+
+  let puerto: number
+  try {
+    puerto = await findAvailablePort(options.port, options.host)
+  } catch {
+    io.stderr(
+      `No se encontro un puerto libre a partir de ${options.port} en ${options.host}. ` +
+        'Prueba con otro puerto usando --port <n>.',
+    )
+    return 1
+  }
 
   if (puerto !== options.port) {
     const aviso = `El puerto ${options.port} esta ocupado. Se usara el ${puerto}.`
@@ -186,7 +215,15 @@ export async function run(
     else io.stdout(aviso)
   }
 
-  await new Promise<void>((resolver) => servidor.listen(puerto, options.host, resolver))
+  try {
+    await escucharServidor(servidor, puerto, options.host)
+  } catch {
+    io.stderr(
+      `No se pudo iniciar el servidor en ${options.host}:${puerto} aunque el puerto parecia libre. ` +
+        'Vuelve a intentarlo o indica otro puerto con --port <n>.',
+    )
+    return 1
+  }
 
   const url = `http://${options.host}:${puerto}/`
   io.stdout(`Documentacion servida desde ${root}`)

@@ -1,8 +1,11 @@
 import { describe, expect, it } from 'vitest'
 import fs from 'node:fs/promises'
+import http from 'node:http'
+import net from 'node:net'
+import os from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { formatRootError, parseArgs, run } from '../src/cli.js'
+import { escucharServidor, formatRootError, parseArgs, run } from '../src/cli.js'
 
 describe('parseArgs', () => {
   it('usa los valores por omision', () => {
@@ -63,6 +66,54 @@ describe('run --version', () => {
 
     expect(codigo).toBe(0)
     expect(salidas).toEqual([pkg.version])
+  })
+})
+
+describe('run() y fallos de arranque', () => {
+  it('informa por stderr y devuelve un codigo distinto de cero cuando no hay puerto libre en el rango probado', async () => {
+    const raiz = await fs.mkdtemp(path.join(os.tmpdir(), 'local-docs-cli-'))
+    await fs.writeFile(path.join(raiz, 'index.md'), '# Inicio')
+
+    // Ocupa el ultimo puerto valido (65535). El siguiente candidato que probaria
+    // findAvailablePort, 65536, esta fuera del rango valido y provoca que su
+    // busqueda falle sin necesidad de abrir los otros ~18 sockets restantes.
+    const ocupante = net.createServer()
+    await new Promise<void>((resolver) => ocupante.listen(65535, '127.0.0.1', resolver))
+
+    try {
+      const errores: string[] = []
+      const codigo = await run(['--dir', raiz, '--port', '65535', '--no-open'], {
+        cwd: process.cwd(),
+        stdout: () => {},
+        stderr: (linea) => errores.push(linea),
+      })
+
+      expect(codigo).not.toBe(0)
+      expect(errores.length).toBeGreaterThan(0)
+      expect(errores.some((linea) => linea.includes('--port'))).toBe(true)
+    } finally {
+      await new Promise<void>((resolver) => ocupante.close(() => resolver()))
+      await fs.rm(raiz, { recursive: true, force: true })
+    }
+  })
+})
+
+describe('escucharServidor', () => {
+  it('rechaza de forma controlada en vez de dejar que el error tumbe el proceso', async () => {
+    // Ocupa un puerto real y le pide al servidor que escuche exactamente ahi:
+    // reproduce de forma determinista el fallo de escucha (EADDRINUSE) que
+    // dispara el evento 'error' de http.Server, sin depender de una carrera
+    // entre la comprobacion de findAvailablePort y el listen real.
+    const ocupante = net.createServer()
+    await new Promise<void>((resolver) => ocupante.listen(0, '127.0.0.1', resolver))
+    const puerto = (ocupante.address() as net.AddressInfo).port
+    const servidor = http.createServer()
+
+    try {
+      await expect(escucharServidor(servidor, puerto, '127.0.0.1')).rejects.toThrow()
+    } finally {
+      await new Promise<void>((resolver) => ocupante.close(() => resolver()))
+    }
   })
 })
 
