@@ -153,6 +153,26 @@ describe('startWatcher', () => {
     await esperarEvento(emitidos, 'root-unavailable')
   })
 
+  // La interfaz le promete al usuario que el visor se recupera solo si la raiz
+  // vuelve a aparecer (seccion 9.2 del spec y texto de DocumentacionNoDisponible),
+  // asi que el ciclo completo tiene que estar cubierto y no solo la desaparicion.
+  it('se recupera sola cuando la raiz desaparece y vuelve a aparecer', async () => {
+    const { raiz, tree, index, emitidos } = await montar({ 'doc.md': '# Doc' })
+
+    await fs.rm(raiz, { recursive: true, force: true })
+    await esperarEvento(emitidos, 'root-unavailable')
+
+    await fs.mkdir(raiz, { recursive: true })
+    await fs.writeFile(path.join(raiz, 'vuelta.md'), '# De vuelta con novedades')
+
+    await esperarEvento(emitidos, 'root-restored')
+    await esperarEvento(emitidos, 'tree-changed')
+
+    const resultado = await tree.get()
+    expect(resultado.nodes.map((n) => n.path)).toContain('vuelta.md')
+    await esperarCondicion(() => index.search('novedades').length > 0)
+  })
+
   it('actualiza el titulo real en el indice al editar un documento sin cambio estructural', async () => {
     const { raiz, index } = await montar({ 'doc.md': '---\ntitle: Titulo Original\n---\n# Original' })
 

@@ -411,9 +411,19 @@ código de salida distinto de cero, salvo donde se indique lo contrario.
 
 ### 9.3 Estados vacíos
 
-Cada uno con su propia pantalla y una explicación de qué se esperaba encontrar:
-raíz sin documentos markdown, búsqueda sin resultados y directorio sin documento
-índice ni contenido.
+Hay dos, cada uno con su propia pantalla y una explicación de qué se esperaba
+encontrar:
+
+- **Raíz sin documentos markdown**: la raíz existe pero no contiene ningún `.md`
+  ni `.markdown`. Se nombra el directorio servido y se explica que el documento
+  aparecerá en cuanto se añada.
+- **Búsqueda sin resultados**: la consulta no coincide con ningún documento
+  indexado. Se distingue del estado de índice en construcción, que tiene su
+  propio mensaje.
+
+Un directorio sin documento índice ni contenido no llega a producir un estado
+vacío: el árbol poda esos directorios al construirse (§4.2), así que no aparece
+en el sidebar y no hay ninguna forma de navegar hasta él.
 
 ## 10. Interfaz de línea de comandos
 
