@@ -2,3 +2,6 @@ node_modules
 dist
 *.log
 .superpowers
+.claude
+CLAUDE.md
+docs/superpowers
