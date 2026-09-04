@@ -1,6 +1,6 @@
 {
   "name": "@mane087/local-docs",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Visor local de documentacion markdown, sin configuracion",
   "scripts": {
     "test": "vitest run",
