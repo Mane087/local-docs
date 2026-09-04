@@ -1,10 +1,14 @@
-import { useEffect, useMemo, useState } from 'preact/hooks'
+import { useEffect, useMemo, useRef, useState } from 'preact/hooks'
 import { ApiError, fetchDoc, fetchTree } from '../api.js'
+import { subscribeToEvents } from '../events.js'
 import { collectPaths } from '../links.js'
 import { navigateTo, onRouteChange, routeFromLocation, type Route } from '../router.js'
+import { leerTema, temaEfectivo } from '../theme.js'
 import type { DocResponse, TreeResponse } from '../types.js'
 import { Search } from './Search.js'
 import { Sidebar } from './Sidebar.js'
+import { DocumentacionNoDisponible, ErrorDocumento, EstadoVacio, SinConexion } from './States.js'
+import { ThemeToggle } from './ThemeToggle.js'
 import { Toc } from './Toc.js'
 import { Viewer } from './Viewer.js'
 
@@ -19,8 +23,27 @@ export function App() {
   const [ruta, setRuta] = useState<Route>(() => routeFromLocation(window.location))
   const [documento, setDocumento] = useState<EstadoDocumento>({ estado: 'cargando' })
   const [busquedaAbierta, setBusquedaAbierta] = useState(false)
+  const [conectado, setConectado] = useState(true)
+  const [raizDisponible, setRaizDisponible] = useState(true)
+  const [version, setVersion] = useState(0)
+  // El tema efectivo se lee una vez al montar y despues se mantiene en este
+  // estado, sincronizado con el atributo `data-tema` (ver el observador mas
+  // abajo). El visor necesita este valor como estado reactivo: si se leyera
+  // el atributo del documento directamente en cada render, un cambio de tema
+  // que no provoque una actualizacion de este componente nunca llegaria al
+  // visor y los diagramas Mermaid se quedarian con la paleta anterior.
+  const [temaOscuro, setTemaOscuro] = useState(() => temaEfectivo(leerTema()) === 'oscuro')
 
   useEffect(() => onRouteChange(setRuta), [])
+
+  useEffect(() => {
+    const raiz = document.documentElement
+    const sincronizar = (): void => setTemaOscuro(raiz.dataset.tema === 'oscuro')
+    sincronizar()
+    const observador = new MutationObserver(sincronizar)
+    observador.observe(raiz, { attributes: true, attributeFilter: ['data-tema'] })
+    return () => observador.disconnect()
+  }, [])
 
   useEffect(() => {
     const alPulsar = (evento: KeyboardEvent): void => {
@@ -39,6 +62,32 @@ export function App() {
       .catch(() => setArbolError(true))
   }, [])
 
+  const rutaActualRef = useRef<string | null>(null)
+  useEffect(() => {
+    rutaActualRef.current = ruta.docPath ?? arbol?.defaultDoc ?? null
+  }, [ruta.docPath, arbol])
+
+  useEffect(() => {
+    return subscribeToEvents({
+      onDocChanged: (ruta) => {
+        if (ruta === (rutaActualRef.current ?? '')) setVersion((v) => v + 1)
+      },
+      onDocRemoved: (ruta) => {
+        if (ruta === (rutaActualRef.current ?? '')) setVersion((v) => v + 1)
+      },
+      onTreeChanged: () => {
+        void fetchTree().then(setArbol)
+        setVersion((v) => v + 1)
+      },
+      onRootUnavailable: () => setRaizDisponible(false),
+      onRootRestored: () => {
+        setRaizDisponible(true)
+        void fetchTree().then(setArbol)
+      },
+      onConnectionChange: setConectado,
+    })
+  }, [])
+
   useEffect(() => {
     if (arbol === null) return
     const objetivo = ruta.docPath ?? arbol.defaultDoc
@@ -52,7 +101,7 @@ export function App() {
       .catch((error: unknown) => {
         setDocumento({ estado: 'error', codigo: error instanceof ApiError ? error.status : 500 })
       })
-  }, [arbol, ruta.docPath])
+  }, [arbol, ruta.docPath, version])
 
   const rutasConocidas = useMemo(
     () => (arbol === null ? new Set<string>() : collectPaths(arbol.tree, arbol.rootIndex)),
@@ -86,6 +135,10 @@ export function App() {
   return (
     <div class="disposicion">
       <aside class="sidebar">
+        <div class="sidebar-cabecera">
+          <ThemeToggle />
+          {conectado ? null : <SinConexion />}
+        </div>
         {arbolError ? (
           'No se pudo cargar el indice de documentacion.'
         ) : arbol === null ? (
@@ -103,17 +156,26 @@ export function App() {
       <main class="contenido">
         {arbolError ? (
           <p>No se pudo cargar el indice de documentacion.</p>
+        ) : !raizDisponible ? (
+          <DocumentacionNoDisponible />
+        ) : arbol !== null && arbol.tree.length === 0 && arbol.rootIndex === null ? (
+          <EstadoVacio root={arbol.root} />
         ) : documento.estado === 'listo' ? (
           <Viewer
             doc={documento.documento}
             knownPaths={rutasConocidas}
-            darkMode={document.documentElement.dataset.tema === 'oscuro'}
+            darkMode={temaOscuro}
             onNavigate={(destino, ancla) => navigateTo(destino, ancla)}
           />
         ) : documento.estado === 'cargando' ? (
           <p>Cargando documento...</p>
         ) : (
-          <p>No se pudo cargar el documento ({documento.codigo}).</p>
+          <ErrorDocumento
+            codigo={documento.codigo}
+            onInicio={() => {
+              if (arbol?.defaultDoc) navigateTo(arbol.defaultDoc)
+            }}
+          />
         )}
       </main>
       <nav class="toc" aria-label="Contenido del documento">

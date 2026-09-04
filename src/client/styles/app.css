@@ -310,3 +310,37 @@ pre.mermaid[data-error='true'] {
   font-size: var(--texto-sm);
   color: var(--texto-secundario);
 }
+
+.estado {
+  color: var(--texto-secundario);
+}
+
+.estado h1 {
+  color: var(--texto-principal);
+  font-size: var(--texto-2xl);
+}
+
+.conexion {
+  font-size: var(--texto-xs);
+  color: var(--aviso-texto);
+  background: var(--aviso-fondo);
+  padding: var(--espacio-2);
+  border-radius: var(--radio);
+}
+
+.sidebar-cabecera {
+  display: flex;
+  flex-direction: column;
+  gap: var(--espacio-2);
+  margin-bottom: var(--espacio-5);
+}
+
+.tema {
+  background: none;
+  border: 1px solid var(--borde);
+  border-radius: var(--radio);
+  color: var(--texto-secundario);
+  font-size: var(--texto-xs);
+  padding: var(--espacio-1) var(--espacio-2);
+  cursor: pointer;
+}
