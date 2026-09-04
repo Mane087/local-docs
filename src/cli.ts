@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import fs from 'node:fs/promises'
+import { realpathSync } from 'node:fs'
 import type { Server } from 'node:http'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -253,8 +254,23 @@ export async function run(
   return 0
 }
 
-const esEjecucionDirecta = process.argv[1] !== undefined &&
-  path.resolve(process.argv[1]) === path.resolve(fileURLToPath(import.meta.url))
+// npm expone el binario como un enlace simbolico en node_modules/.bin, asi que
+// `process.argv[1]` es la ruta del enlace y no la del archivo. Comparar sin
+// resolver los enlaces haria que el comando instalado no arrancara nunca.
+function rutaReal(ruta: string): string {
+  try {
+    return realpathSync(path.resolve(ruta))
+  } catch {
+    return path.resolve(ruta)
+  }
+}
+
+export function esEntradaDirecta(argv1: string | undefined, moduleUrl: string): boolean {
+  if (argv1 === undefined) return false
+  return rutaReal(argv1) === rutaReal(fileURLToPath(moduleUrl))
+}
+
+const esEjecucionDirecta = esEntradaDirecta(process.argv[1], import.meta.url)
 
 if (esEjecucionDirecta) {
   const codigo = await run(process.argv.slice(2), {

@@ -4,8 +4,8 @@ import http from 'node:http'
 import net from 'node:net'
 import os from 'node:os'
 import path from 'node:path'
-import { fileURLToPath } from 'node:url'
-import { escucharServidor, formatRootError, parseArgs, run } from '../src/cli.js'
+import { fileURLToPath, pathToFileURL } from 'node:url'
+import { esEntradaDirecta, escucharServidor, formatRootError, parseArgs, run } from '../src/cli.js'
 
 describe('parseArgs', () => {
   it('usa los valores por omision', () => {
@@ -195,6 +195,38 @@ describe('cierre limpio', () => {
       espiaOn.mockRestore()
       espiaExit.mockRestore()
       await fs.rm(raiz, { recursive: true, force: true })
+    }
+  })
+})
+
+describe('esEntradaDirecta', () => {
+  it('reconoce la ejecucion a traves de un enlace simbolico como la de npm', async () => {
+    const base = await fs.realpath(await fs.mkdtemp(path.join(os.tmpdir(), 'local-docs-bin-')))
+    const archivo = path.join(base, 'cli.js')
+    const enlace = path.join(base, 'local-docs')
+    await fs.writeFile(archivo, '')
+    await fs.symlink(archivo, enlace)
+
+    try {
+      expect(esEntradaDirecta(enlace, pathToFileURL(archivo).href)).toBe(true)
+      expect(esEntradaDirecta(archivo, pathToFileURL(archivo).href)).toBe(true)
+    } finally {
+      await fs.rm(base, { recursive: true, force: true })
+    }
+  })
+
+  it('no confunde otro archivo con el modulo', async () => {
+    const base = await fs.realpath(await fs.mkdtemp(path.join(os.tmpdir(), 'local-docs-bin-')))
+    const archivo = path.join(base, 'cli.js')
+    const otro = path.join(base, 'otro.js')
+    await fs.writeFile(archivo, '')
+    await fs.writeFile(otro, '')
+
+    try {
+      expect(esEntradaDirecta(otro, pathToFileURL(archivo).href)).toBe(false)
+      expect(esEntradaDirecta(undefined, pathToFileURL(archivo).href)).toBe(false)
+    } finally {
+      await fs.rm(base, { recursive: true, force: true })
     }
   })
 })
