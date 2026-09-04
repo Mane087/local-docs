@@ -8,11 +8,27 @@ export interface EnlaceResuelto {
   hash: string | null
 }
 
+// Una referencia con un porcentaje invalido (por ejemplo ./a%zz.pdf) hace que
+// decodeURIComponent lance. El visor recorre estos enlaces dentro de un efecto,
+// asi que la excepcion dejaba la aplicacion en blanco. Se trata como una
+// referencia no resoluble: las tres funciones que dependen de resolverRuta ya
+// saben que hacer con null.
+function decodificarReferencia(referencia: string): string | null {
+  try {
+    return decodeURIComponent(referencia)
+  } catch {
+    return null
+  }
+}
+
 function resolverRuta(currentPath: string, referencia: string): string | null {
+  const decodificada = decodificarReferencia(referencia)
+  if (decodificada === null) return null
+
   const base = currentPath.split('/')
   base.pop()
 
-  for (const segmento of decodeURIComponent(referencia).split('/')) {
+  for (const segmento of decodificada.split('/')) {
     if (segmento === '' || segmento === '.') continue
     if (segmento === '..') {
       if (base.length === 0) return null

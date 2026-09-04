@@ -221,6 +221,36 @@ describe('App', () => {
     expect(screen.queryByText('Cargando documento...')).toBeNull()
   })
 
+  it('un fallo de red al refrescar el arbol se maneja igual que en la carga inicial', async () => {
+    vi.stubGlobal('EventSource', EventSourceFalso)
+    let arbolFalla = false
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockImplementation((url: string) => {
+        if (url === '/api/tree') {
+          return arbolFalla
+            ? Promise.reject(new Error('fallo de red'))
+            : Promise.resolve(respuestaFalsa(arbolFalso))
+        }
+        return Promise.resolve(respuestaFalsa(docFalso))
+      }),
+    )
+
+    render(<App />)
+
+    await waitFor(() => expect(screen.getByRole('link', { name: 'Uso' })).toBeTruthy())
+
+    // Sin captura de error, este refresco producia un rechazo sin capturar en
+    // lugar del mismo estado que muestra la carga inicial fallida.
+    arbolFalla = true
+    const fuente = EventSourceFalso.instancias[0] as EventSourceFalso
+    fuente.emitir('tree-changed', {})
+
+    await waitFor(() => {
+      expect(screen.getAllByText(/no se pudo cargar el indice de documentacion/i).length).toBeGreaterThan(0)
+    })
+  })
+
   it('el boton de navegacion abre y cierra el sidebar, y navegar lo cierra', async () => {
     vi.stubGlobal('EventSource', EventSourceFalso)
     vi.stubGlobal(

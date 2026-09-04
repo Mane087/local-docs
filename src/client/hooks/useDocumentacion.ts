@@ -41,10 +41,16 @@ export function useDocumentacion(docPath: string | null): Documentacion {
     rutaActualRef.current = docPath ?? arbol?.defaultDoc ?? null
   }, [docPath, arbol])
 
-  useEffect(() => {
-    fetchTree()
+  // Todas las cargas del arbol pasan por aqui, con la misma captura de error:
+  // sin ella un fallo de red en un refresco producia un rechazo sin capturar.
+  const refrescarArbol = (): void => {
+    void fetchTree()
       .then(setArbol)
       .catch(() => setArbolError(true))
+  }
+
+  useEffect(() => {
+    refrescarArbol()
   }, [])
 
   useEffect(() => {
@@ -61,12 +67,12 @@ export function useDocumentacion(docPath: string | null): Documentacion {
       // baja+alta que produce un editor que guarda de forma atomica) dejaba
       // antes al lector al principio del documento que estaba leyendo.
       onTreeChanged: () => {
-        void fetchTree().then(setArbol)
+        refrescarArbol()
       },
       onRootUnavailable: () => setRaizDisponible(false),
       onRootRestored: () => {
         setRaizDisponible(true)
-        void fetchTree().then(setArbol)
+        refrescarArbol()
         // La raiz pudo reaparecer con otro contenido, asi que el documento
         // visible se vuelve a pedir explicitamente.
         setVersion((v) => v + 1)
@@ -75,7 +81,7 @@ export function useDocumentacion(docPath: string | null): Documentacion {
       // Durante la caida no llego ningun evento: al recuperar la conexion se
       // refrescan arbol y documento visible (seccion 9.2 del spec).
       onReconnect: () => {
-        void fetchTree().then(setArbol).catch(() => setArbolError(true))
+        refrescarArbol()
         setVersion((v) => v + 1)
       },
     })

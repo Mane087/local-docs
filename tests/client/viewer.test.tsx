@@ -187,6 +187,36 @@ describe('Viewer', () => {
     expect(alNavegar).not.toHaveBeenCalled()
   })
 
+  it('renderiza sin romperse un documento con enlaces de codificacion invalida', () => {
+    // El bucle de enlaces del visor pasa ahora cualquier href relativo por la
+    // resolucion de recursos, asi que un porcentaje invalido llega a la
+    // decodificacion. Si lanzara, el efecto tumbaria el render y la
+    // aplicacion se quedaria en blanco.
+    const alNavegar = vi.fn()
+    const { container } = render(
+      <Viewer
+        doc={documento(
+          '<h1>Uso</h1><p><a href="./a%zz.pdf">tabla</a> <a href="./b%zz.md">otro</a>' +
+            '<img src="./c%zz.png" alt="imagen"></p>',
+        )}
+        knownPaths={conocidas}
+        darkMode={false}
+        onNavigate={alNavegar}
+      />,
+    )
+
+    expect(container.querySelector('h1')?.textContent).toBe('Uso')
+    const enlaces = Array.from(container.querySelectorAll('a'))
+    // No se pudo resolver, asi que el href se deja tal cual.
+    expect(enlaces[0]?.getAttribute('href')).toBe('./a%zz.pdf')
+    // El que parece un documento markdown se marca como roto y no navega.
+    expect(enlaces[1]?.getAttribute('data-roto')).toBe('true')
+    expect(container.querySelector('img')?.getAttribute('src')).toBe('./c%zz.png')
+
+    fireEvent.click(enlaces[1] as HTMLAnchorElement)
+    expect(alNavegar).not.toHaveBeenCalled()
+  })
+
   it('muestra un aviso cuando el frontmatter es invalido', () => {
     const { container } = render(
       <Viewer

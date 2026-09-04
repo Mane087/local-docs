@@ -84,6 +84,25 @@ describe('resolveAssetUrl', () => {
   })
 })
 
+describe('codificacion invalida en la referencia', () => {
+  // El visor recorre los enlaces dentro de un efecto: si la decodificacion
+  // lanza, la excepcion deja la aplicacion en blanco. Las tres funciones que
+  // dependen de resolverRuta tratan la referencia como no resoluble.
+  it('resolveDocLink devuelve null en vez de lanzar', () => {
+    expect(() => resolveDocLink('guia/uso.md', './a%zz.md')).not.toThrow()
+    expect(resolveDocLink('guia/uso.md', './a%zz.md')).toBeNull()
+  })
+
+  it('resolveAssetUrl y resolveRelativeAssetLink devuelven null en vez de lanzar', () => {
+    expect(resolveAssetUrl('guia/uso.md', './a%zz.png')).toBeNull()
+    expect(resolveRelativeAssetLink('guia/uso.md', './a%zz.pdf')).toBeNull()
+  })
+
+  it('esEnlaceDocumentoFueraDeRaiz trata el enlace markdown como no resoluble', () => {
+    expect(esEnlaceDocumentoFueraDeRaiz('guia/uso.md', './a%zz.md')).toBe(true)
+  })
+})
+
 describe('resolveRelativeAssetLink', () => {
   it('reescribe un enlace relativo a un fichero que no es markdown', () => {
     expect(resolveRelativeAssetLink('guia/uso.md', './tabla.pdf')).toBe('/assets/guia/tabla.pdf')
