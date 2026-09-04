@@ -34,6 +34,7 @@ function manejadoresFalsos() {
     onRootUnavailable: vi.fn(),
     onRootRestored: vi.fn(),
     onConnectionChange: vi.fn(),
+    onReconnect: vi.fn(),
   }
 }
 
@@ -86,6 +87,39 @@ describe('subscribeToEvents', () => {
     vi.advanceTimersByTime(1000)
 
     expect(EventSourceFalso.instancias).toHaveLength(2)
+  })
+
+  it('avisa de conexion recuperada desde cualquier tipo de evento, no solo desde uno', () => {
+    const tipos = ['doc-changed', 'doc-removed', 'tree-changed', 'root-unavailable', 'root-restored']
+
+    for (const tipo of tipos) {
+      EventSourceFalso.instancias = []
+      const manejadores = manejadoresFalsos()
+      subscribeToEvents(manejadores)
+      const fuente = EventSourceFalso.instancias[0] as EventSourceFalso
+
+      fuente.emitir(tipo, { path: 'guia/uso.md' })
+
+      expect(manejadores.onConnectionChange, tipo).toHaveBeenCalledWith(true)
+    }
+  })
+
+  it('distingue la conexion inicial de una reconexion', () => {
+    vi.useFakeTimers()
+    const manejadores = manejadoresFalsos()
+    subscribeToEvents(manejadores)
+    const primera = EventSourceFalso.instancias[0] as EventSourceFalso
+
+    primera.onopen?.({})
+
+    expect(manejadores.onReconnect).not.toHaveBeenCalled()
+
+    primera.onerror?.({})
+    vi.advanceTimersByTime(1000)
+    const segunda = EventSourceFalso.instancias[1] as EventSourceFalso
+    segunda.onopen?.({})
+
+    expect(manejadores.onReconnect).toHaveBeenCalledTimes(1)
   })
 
   it('cierra el flujo al cancelar la suscripcion', () => {

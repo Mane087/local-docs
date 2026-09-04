@@ -110,10 +110,11 @@ describe('App', () => {
     await waitFor(() => expect(vi.mocked(renderMermaid).mock.calls.at(-1)?.[1]).toBe(false))
   })
 
-  it('un cambio de arbol recarga el documento visible una sola vez', async () => {
+  it('un cambio de arbol no vuelve a pedir el documento visible', async () => {
     vi.stubGlobal('EventSource', EventSourceFalso)
+    let arbolServido = arbolFalso
     const fetchFalso = vi.fn().mockImplementation((url: string) => {
-      if (url === '/api/tree') return Promise.resolve(respuestaFalsa(arbolFalso))
+      if (url === '/api/tree') return Promise.resolve(respuestaFalsa(arbolServido))
       return Promise.resolve(respuestaFalsa(docFalso))
     })
     vi.stubGlobal('fetch', fetchFalso)
@@ -124,15 +125,100 @@ describe('App', () => {
 
     await waitFor(() => expect(llamadasDoc()).toBe(1))
 
+    // El arbol nuevo trae un documento mas: esperar a que aparezca en el
+    // sidebar demuestra que el arbol ya se sustituyo en el estado, de modo
+    // que la comprobacion de abajo no se adelanta a la recarga.
+    arbolServido = {
+      ...arbolFalso,
+      tree: [
+        ...arbolFalso.tree,
+        { type: 'document', path: 'guia/otro.md', title: 'Otro', readable: true },
+      ],
+    }
     const fuente = EventSourceFalso.instancias[0] as EventSourceFalso
     fuente.emitir('tree-changed', {})
 
+    await waitFor(() => expect(screen.getByRole('link', { name: 'Otro' })).toBeTruthy())
+    // Margen para que corran los efectos posteriores al render del arbol
+    // nuevo: si alguno volviera a pedir el documento, la llamada aparece aqui.
+    await new Promise((resolve) => setTimeout(resolve, 50))
+
+    // La ruta visible no cambio, asi que el documento no se vuelve a pedir.
+    // Recargarlo devolvia al lector al principio del documento cada vez que
+    // se creaba o borraba cualquier archivo de docs/.
+    expect(llamadasDoc()).toBe(1)
+  })
+
+  it('al recuperar la conexion refresca arbol y documento visible', async () => {
+    vi.stubGlobal('EventSource', EventSourceFalso)
+    const fetchFalso = vi.fn().mockImplementation((url: string) => {
+      if (url === '/api/tree') return Promise.resolve(respuestaFalsa(arbolFalso))
+      return Promise.resolve(respuestaFalsa(docFalso))
+    })
+    vi.stubGlobal('fetch', fetchFalso)
+    const llamadasArbol = (): number =>
+      fetchFalso.mock.calls.filter(([url]: [string]) => url === '/api/tree').length
+    const llamadasDoc = (): number =>
+      fetchFalso.mock.calls.filter(([url]: [string]) => url.startsWith('/api/doc/')).length
+
+    render(<App />)
+
+    await waitFor(() => expect(llamadasDoc()).toBe(1))
+
+    const fuente = EventSourceFalso.instancias[0] as EventSourceFalso
+    fuente.onopen?.({})
+    fuente.onerror?.({})
+
+    await waitFor(() => expect(screen.getByText(/sin conexion con el servidor/i)).toBeTruthy())
+
+    await new Promise((resolve) => setTimeout(resolve, 1100))
+    const segunda = EventSourceFalso.instancias[1] as EventSourceFalso
+    segunda.onopen?.({})
+
+    await waitFor(() => expect(llamadasArbol()).toBe(2))
     await waitFor(() => expect(llamadasDoc()).toBe(2))
-    // Deja que se asiente cualquier microtarea pendiente: si quedara una
-    // segunda causa de recarga (por ejemplo una version incrementada ademas
-    // del arbol refrescado), aqui apareceria una tercera llamada.
-    await new Promise((resolve) => setTimeout(resolve, 0))
-    expect(llamadasDoc()).toBe(2)
+    expect(screen.queryByText(/sin conexion con el servidor/i)).toBeNull()
+  })
+
+  it('recargar el mismo documento no pasa por el estado de carga', async () => {
+    vi.stubGlobal('EventSource', EventSourceFalso)
+    let resolverSegunda: ((valor: Response) => void) | null = null
+    let peticionesDoc = 0
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockImplementation((url: string) => {
+        if (url === '/api/tree') return Promise.resolve(respuestaFalsa(arbolFalso))
+        peticionesDoc += 1
+        if (peticionesDoc === 1) {
+          return Promise.resolve(respuestaFalsa({ ...docFalso, html: '<p>version original</p>' }))
+        }
+        // La segunda peticion queda en vuelo a proposito: mientras tanto se
+        // comprueba que la pantalla conserva el contenido anterior.
+        return new Promise<Response>((resolver) => {
+          resolverSegunda = resolver
+        })
+      }),
+    )
+
+    render(<App />)
+
+    await waitFor(() => expect(screen.getByText('version original')).toBeTruthy())
+
+    const fuente = EventSourceFalso.instancias[0] as EventSourceFalso
+    fuente.emitir('doc-changed', { path: 'guia/uso.md' })
+
+    await waitFor(() => expect(peticionesDoc).toBe(2))
+
+    // El contenido anterior sigue en pantalla mientras llega el nuevo: si se
+    // pasara por el estado de carga, el nodo del documento se destruiria y se
+    // perderia la posicion de lectura.
+    expect(screen.queryByText('Cargando documento...')).toBeNull()
+    expect(screen.getByText('version original')).toBeTruthy()
+
+    resolverSegunda?.(respuestaFalsa({ ...docFalso, html: '<p>version nueva</p>' }))
+
+    await waitFor(() => expect(screen.getByText('version nueva')).toBeTruthy())
+    expect(screen.queryByText('Cargando documento...')).toBeNull()
   })
 
   it('el boton de navegacion abre y cierra el sidebar, y navegar lo cierra', async () => {

@@ -55,11 +55,11 @@ export function useDocumentacion(docPath: string | null): Documentacion {
       onDocRemoved: (ruta) => {
         if (ruta === (rutaActualRef.current ?? '')) setVersion((v) => v + 1)
       },
-      // Un arbol nuevo ya cambia de referencia en cada carga, asi que basta
-      // con refrescarlo: al ser dependencia del efecto de carga del
-      // documento de mas abajo, dispara por si solo la recarga necesaria.
-      // Incrementar tambien `version` aqui pedia el documento visible dos
-      // veces por el mismo cambio.
+      // El arbol se refresca, pero eso ya no arrastra al documento visible: el
+      // efecto de carga de mas abajo depende de la ruta objetivo, no de la
+      // referencia del arbol. Un alta o baja de otro archivo (o el par
+      // baja+alta que produce un editor que guarda de forma atomica) dejaba
+      // antes al lector al principio del documento que estaba leyendo.
       onTreeChanged: () => {
         void fetchTree().then(setArbol)
       },
@@ -67,25 +67,51 @@ export function useDocumentacion(docPath: string | null): Documentacion {
       onRootRestored: () => {
         setRaizDisponible(true)
         void fetchTree().then(setArbol)
+        // La raiz pudo reaparecer con otro contenido, asi que el documento
+        // visible se vuelve a pedir explicitamente.
+        setVersion((v) => v + 1)
       },
       onConnectionChange: setConectado,
+      // Durante la caida no llego ningun evento: al recuperar la conexion se
+      // refrescan arbol y documento visible (seccion 9.2 del spec).
+      onReconnect: () => {
+        void fetchTree().then(setArbol).catch(() => setArbolError(true))
+        setVersion((v) => v + 1)
+      },
     })
   }, [])
 
+  const arbolCargado = arbol !== null
+  const objetivo = docPath ?? arbol?.defaultDoc ?? null
+
   useEffect(() => {
-    if (arbol === null) return
-    const objetivo = docPath ?? arbol.defaultDoc
+    if (!arbolCargado) return
     if (objetivo === null) {
       setDocumento({ estado: 'error', codigo: 404 })
       return
     }
-    setDocumento({ estado: 'cargando' })
+
+    // Recargar el mismo documento no pasa por el estado de carga: se sustituye
+    // el contenido cuando llega el nuevo, para no descartar el nodo del DOM y
+    // conservar la posicion de desplazamiento (seccion 4.7 del spec).
+    setDocumento((previo) =>
+      previo.estado === 'listo' && previo.documento.path === objetivo ? previo : { estado: 'cargando' },
+    )
+
+    let vigente = true
     fetchDoc(objetivo)
-      .then((doc) => setDocumento({ estado: 'listo', documento: doc }))
+      .then((doc) => {
+        if (vigente) setDocumento({ estado: 'listo', documento: doc })
+      })
       .catch((error: unknown) => {
+        if (!vigente) return
         setDocumento({ estado: 'error', codigo: error instanceof ApiError ? error.status : 500 })
       })
-  }, [arbol, docPath, version])
+
+    return () => {
+      vigente = false
+    }
+  }, [arbolCargado, objetivo, version])
 
   return { arbol, arbolError, documento, raizDisponible, conectado }
 }
