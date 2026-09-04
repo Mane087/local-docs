@@ -165,6 +165,28 @@ describe('Viewer', () => {
     expect(enlaces[1]?.getAttribute('href')).toBe('#seccion')
   })
 
+  it('marca como roto un enlace a un documento ilegible y no navega', () => {
+    // knownPaths ya no contiene los documentos ilegibles (collectPaths los
+    // excluye), asi que el visor los trata igual que a un documento que no
+    // existe, en vez de pintarlos como enlaces validos que llevan a un error.
+    const alNavegar = vi.fn()
+    const { container } = render(
+      <Viewer
+        doc={documento('<p><a href="./privado.md">privado</a></p>')}
+        knownPaths={conocidas}
+        darkMode={false}
+        onNavigate={alNavegar}
+      />,
+    )
+
+    const enlace = container.querySelector('a') as HTMLAnchorElement
+    expect(enlace.getAttribute('data-roto')).toBe('true')
+
+    fireEvent.click(enlace)
+
+    expect(alNavegar).not.toHaveBeenCalled()
+  })
+
   it('muestra un aviso cuando el frontmatter es invalido', () => {
     const { container } = render(
       <Viewer

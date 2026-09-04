@@ -90,6 +90,10 @@ export function resolveRelativeAssetLink(currentPath: string, href: string): str
   return ancla === '' ? url : `${url}#${ancla}`
 }
 
+// Rutas de documento a las que se puede navegar. Un documento ilegible se
+// excluye a proposito: el sidebar ya lo muestra atenuado y sin enlace, asi que
+// incluirlo aqui hacia que el visor pintara como valido un enlace que al
+// pulsarlo llevaba a un error. Las dos vistas describen ahora el mismo hecho.
 export function collectPaths(nodes: TreeNode[], rootIndex: string | null): Set<string> {
   const rutas = new Set<string>()
   if (rootIndex !== null) rutas.add(rootIndex)
@@ -97,7 +101,7 @@ export function collectPaths(nodes: TreeNode[], rootIndex: string | null): Set<s
   const recorrer = (lista: TreeNode[]): void => {
     for (const node of lista) {
       if (node.type === 'document') {
-        rutas.add(node.path)
+        if (node.readable) rutas.add(node.path)
         continue
       }
       if (node.indexPath !== null) rutas.add(node.indexPath)

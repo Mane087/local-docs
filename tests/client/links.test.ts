@@ -126,4 +126,13 @@ describe('collectPaths', () => {
       new Set(['README.md', 'guia/index.md', 'guia/uso.md', 'inicio.md']),
     )
   })
+
+  it('deja fuera los documentos ilegibles, que el sidebar tampoco enlaza', () => {
+    const nodes: TreeNode[] = [
+      { type: 'document', path: 'inicio.md', title: 'Inicio', readable: true },
+      { type: 'document', path: 'privado.md', title: 'Privado', readable: false },
+    ]
+
+    expect(collectPaths(nodes, null)).toEqual(new Set(['inicio.md']))
+  })
 })
