@@ -27,6 +27,13 @@ export function Viewer({ doc, knownPaths, darkMode, onNavigate }: Props) {
     const nodo = contenedor.current
     if (nodo === null) return
 
+    // Los encabezados reciben foco programatico al elegirlos en la tabla de
+    // contenidos; sin este atributo el navegador los ignora por no ser
+    // elementos interactivos y el foco se queda donde estaba.
+    for (const encabezado of Array.from(nodo.querySelectorAll<HTMLElement>('h1[id], h2[id], h3[id], h4[id], h5[id], h6[id]'))) {
+      encabezado.tabIndex = -1
+    }
+
     for (const imagen of Array.from(nodo.querySelectorAll<HTMLImageElement>('img'))) {
       const origen = imagen.getAttribute('src') ?? ''
       const destino = resolveAssetUrl(doc.path, origen)

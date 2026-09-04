@@ -37,6 +37,18 @@ Node.js 20.19 o superior.
 
 La herramienta solo lee: nunca escribe dentro de `docs/`.
 
+## Atajos de teclado
+
+| Tecla | Efecto |
+|---|---|
+| `Cmd/Ctrl + K` | Abrir la busqueda |
+| `I` | Mostrar u ocultar el indice lateral |
+| `C` | Mostrar u ocultar el contenido de la pagina |
+
+Las teclas sueltas se ignoran mientras escribes en un campo de texto y cuando
+llevan una tecla modificadora, para no pisar los atajos del navegador ni los
+del sistema. Funcionan igual en Windows, Linux y macOS.
+
 ## Licencia
 
 Apache License 2.0. Ver [LICENSE](./LICENSE).

@@ -251,8 +251,21 @@ describe('App', () => {
     })
   })
 
-  it('el boton de navegacion abre y cierra el sidebar, y navegar lo cierra', async () => {
+  const simularEscritorio = (): void => {
+    vi.stubGlobal(
+      'matchMedia',
+      vi.fn().mockImplementation((consulta: string) => ({
+        matches: consulta.includes('max-width') ? false : false,
+        addEventListener: vi.fn(),
+        removeEventListener: vi.fn(),
+      })),
+    )
+  }
+
+  it('los controles ocultan y muestran cada panel lateral', async () => {
     vi.stubGlobal('EventSource', EventSourceFalso)
+    simularEscritorio()
+    window.localStorage.clear()
     vi.stubGlobal(
       'fetch',
       vi.fn().mockImplementation((url: string) => {
@@ -263,22 +276,122 @@ describe('App', () => {
 
     const { container } = render(<App />)
 
-    const boton = screen.getByRole('button', { name: /abrir navegacion/i })
-    const panel = container.querySelector('aside.sidebar') as HTMLElement
+    const disposicion = container.querySelector('.disposicion') as HTMLElement
+    const indice = screen.getByRole('button', { name: /ocultar indice/i })
+    const contenido = screen.getByRole('button', { name: /ocultar contenido/i })
 
-    expect(boton.getAttribute('aria-expanded')).toBe('false')
-    expect(boton.getAttribute('aria-controls')).toBe(panel.id)
-    expect(panel.getAttribute('data-abierto')).toBe('false')
+    expect(disposicion.getAttribute('data-sidebar')).toBe('visible')
+    expect(disposicion.getAttribute('data-toc')).toBe('visible')
+    expect(indice.getAttribute('aria-controls')).toBe('sidebar-navegacion')
+    expect(contenido.getAttribute('aria-controls')).toBe('toc-documento')
 
-    fireEvent.click(boton)
+    fireEvent.click(indice)
+    expect(disposicion.getAttribute('data-sidebar')).toBe('oculto')
+    expect(screen.getByRole('button', { name: /mostrar indice/i }).getAttribute('aria-pressed')).toBe('false')
 
-    expect(screen.getByRole('button', { name: /cerrar navegacion/i }).getAttribute('aria-expanded')).toBe('true')
-    expect(panel.getAttribute('data-abierto')).toBe('true')
+    fireEvent.click(contenido)
+    expect(disposicion.getAttribute('data-toc')).toBe('oculto')
 
-    // Navegar a un documento cierra el panel: en movil tapa el contenido.
-    await waitFor(() => expect(screen.getByRole('link', { name: 'Uso' })).toBeTruthy())
-    fireEvent.click(screen.getByRole('link', { name: 'Uso' }))
+    fireEvent.click(screen.getByRole('button', { name: /mostrar indice/i }))
+    expect(disposicion.getAttribute('data-sidebar')).toBe('visible')
+  })
 
-    await waitFor(() => expect(panel.getAttribute('data-abierto')).toBe('false'))
+  it('recuerda entre sesiones que un panel quedo oculto', async () => {
+    vi.stubGlobal('EventSource', EventSourceFalso)
+    simularEscritorio()
+    window.localStorage.clear()
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockImplementation((url: string) => {
+        if (url === '/api/tree') return Promise.resolve(respuestaFalsa(arbolFalso))
+        return Promise.resolve(respuestaFalsa(docFalso))
+      }),
+    )
+
+    const primera = render(<App />)
+    fireEvent.click(screen.getByRole('button', { name: /ocultar indice/i }))
+    primera.unmount()
+
+    const { container } = render(<App />)
+
+    expect((container.querySelector('.disposicion') as HTMLElement).getAttribute('data-sidebar')).toBe('oculto')
+  })
+
+  it('las teclas de atajo alternan cada panel y respetan donde se escribe', async () => {
+    vi.stubGlobal('EventSource', EventSourceFalso)
+    simularEscritorio()
+    window.localStorage.clear()
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockImplementation((url: string) => {
+        if (url === '/api/tree') return Promise.resolve(respuestaFalsa(arbolFalso))
+        return Promise.resolve(respuestaFalsa(docFalso))
+      }),
+    )
+
+    const { container } = render(<App />)
+    const disposicion = container.querySelector('.disposicion') as HTMLElement
+
+    fireEvent.keyDown(window, { code: 'KeyI' })
+    expect(disposicion.getAttribute('data-sidebar')).toBe('oculto')
+
+    fireEvent.keyDown(window, { code: 'KeyC' })
+    expect(disposicion.getAttribute('data-toc')).toBe('oculto')
+
+    fireEvent.keyDown(window, { code: 'KeyI' })
+    expect(disposicion.getAttribute('data-sidebar')).toBe('visible')
+
+    // Con modificador la combinacion pertenece al navegador o al sistema.
+    fireEvent.keyDown(window, { code: 'KeyI', ctrlKey: true })
+    expect(disposicion.getAttribute('data-sidebar')).toBe('visible')
+
+    // Escribiendo en un campo, la tecla es texto y no un atajo.
+    const campo = document.createElement('input')
+    document.body.appendChild(campo)
+    fireEvent.keyDown(campo, { code: 'KeyI', bubbles: true })
+    expect(disposicion.getAttribute('data-sidebar')).toBe('visible')
+    campo.remove()
+  })
+
+  it('los controles anuncian su atajo de teclado', async () => {
+    vi.stubGlobal('EventSource', EventSourceFalso)
+    simularEscritorio()
+    window.localStorage.clear()
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockImplementation((url: string) => {
+        if (url === '/api/tree') return Promise.resolve(respuestaFalsa(arbolFalso))
+        return Promise.resolve(respuestaFalsa(docFalso))
+      }),
+    )
+
+    render(<App />)
+
+    expect(screen.getByRole('button', { name: /ocultar indice/i }).getAttribute('aria-keyshortcuts')).toBe('i')
+    expect(screen.getByRole('button', { name: /ocultar contenido/i }).getAttribute('aria-keyshortcuts')).toBe('c')
+  })
+
+  it('en pantalla estrecha el sidebar arranca oculto aunque la preferencia diga lo contrario', async () => {
+    vi.stubGlobal('EventSource', EventSourceFalso)
+    vi.stubGlobal(
+      'matchMedia',
+      vi.fn().mockImplementation((consulta: string) => ({
+        matches: consulta.includes('max-width'),
+        addEventListener: vi.fn(),
+        removeEventListener: vi.fn(),
+      })),
+    )
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockImplementation((url: string) => {
+        if (url === '/api/tree') return Promise.resolve(respuestaFalsa(arbolFalso))
+        return Promise.resolve(respuestaFalsa(docFalso))
+      }),
+    )
+    window.localStorage.setItem('local-docs:sidebar-visible', 'true')
+
+    const { container } = render(<App />)
+
+    expect((container.querySelector('.disposicion') as HTMLElement).getAttribute('data-sidebar')).toBe('oculto')
   })
 })

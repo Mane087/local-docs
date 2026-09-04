@@ -13,29 +13,101 @@ body {
 
 .disposicion {
   display: grid;
-  grid-template-columns: var(--ancho-sidebar) minmax(0, 1fr) var(--ancho-toc);
+  /* Las dos columnas laterales se pliegan a cero cuando su panel se oculta,
+     en vez de quedarse como huecos vacios que estrechan la lectura. */
+  --columna-sidebar: var(--ancho-sidebar);
+  --columna-toc: var(--ancho-toc);
+  /* Cuanto texto por linea se permite. Crece al ocultar un panel para que el
+     documento ocupe el hueco en lugar de quedarse estrecho y centrado. */
+  --ancho-lectura-actual: var(--ancho-lectura);
+  grid-template-columns: var(--columna-sidebar) minmax(0, 1fr) var(--columna-toc);
   gap: var(--espacio-6);
   align-items: start;
   min-height: 100vh;
   padding: var(--espacio-5);
 }
 
+/* Cada zona ocupa su columna de forma explicita. Sin esto, ocultar un panel
+   hace que el grid recoloque las zonas restantes por orden y el documento
+   acaba en la columna plegada, encima del indice de la pagina. */
+.barra {
+  grid-column: 1 / -1;
+  /* Los controles siguen accesibles al desplazarse por documentos largos. */
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  gap: var(--espacio-2);
+  background: var(--fondo);
+  padding-block: var(--espacio-3);
+  margin-bottom: var(--espacio-2);
+}
+
+.sidebar {
+  grid-column: 1;
+}
+
+.contenido {
+  grid-column: 2;
+}
+
+.toc {
+  grid-column: 3;
+}
+
+.disposicion[data-sidebar='oculto'] {
+  --columna-sidebar: 0px;
+  --ancho-lectura-actual: calc(var(--ancho-lectura) + 15ch);
+}
+
+.disposicion[data-toc='oculto'] {
+  --columna-toc: 0px;
+  --ancho-lectura-actual: calc(var(--ancho-lectura) + 15ch);
+}
+
+.disposicion[data-sidebar='oculto'][data-toc='oculto'] {
+  --ancho-lectura-actual: calc(var(--ancho-lectura) + 30ch);
+}
+
+.disposicion[data-sidebar='oculto'] > .sidebar,
+.disposicion[data-toc='oculto'] > .toc {
+  display: none;
+}
+
+.barra-separador {
+  flex: 1;
+}
+
+/* Controles secundarios: no compiten con el documento, que es el contenido
+   principal de la pantalla. */
+.alternar {
+  background: none;
+  border: 1px solid transparent;
+  border-radius: var(--radio);
+  color: var(--texto-secundario);
+  font-size: var(--texto-xs);
+  font-family: inherit;
+  padding: var(--espacio-1) var(--espacio-2);
+  cursor: pointer;
+}
+
+.alternar:hover {
+  border-color: var(--borde);
+  color: var(--texto-principal);
+}
+
 .sidebar {
   position: sticky;
-  top: var(--espacio-5);
+  top: var(--alto-barra);
   max-height: calc(100vh - var(--espacio-8));
   overflow-y: auto;
   font-size: var(--texto-sm);
   color: var(--texto-secundario);
 }
 
-/* Solo existe por debajo de 900px, donde el sidebar pasa a panel deslizable. */
-.alternar-sidebar {
-  display: none;
-}
-
 .contenido {
-  max-width: var(--ancho-lectura);
+  max-width: var(--ancho-lectura-actual);
   margin-inline: auto;
   background: var(--fondo-elevado);
   border-radius: var(--radio);
@@ -75,10 +147,50 @@ body {
   display: block;
   overflow-x: auto;
   border-collapse: collapse;
+  font-size: var(--texto-sm);
+  margin-block: var(--espacio-5);
+}
+
+.contenido th,
+.contenido td {
+  border: 1px solid var(--borde);
+  padding: var(--espacio-2) var(--espacio-3);
+  text-align: left;
+  vertical-align: top;
+}
+
+.contenido thead th {
+  background: var(--fondo-sutil);
+  font-weight: var(--peso-fuerte);
+  color: var(--texto-principal);
+}
+
+/* El codigo en linea necesita separarse del texto que lo rodea; sin fondo
+   propio solo cambia la familia tipografica y pasa desapercibido. La regla
+   excluye el codigo dentro de un bloque, que ya tiene su propio tratamiento. */
+.contenido :not(pre) > code {
+  background: var(--fondo-sutil);
+  border: 1px solid var(--borde);
+  border-radius: 4px;
+  padding: 0.1em 0.35em;
+  font-family: var(--fuente-mono);
+  font-size: 0.9em;
+  color: var(--texto-principal);
+}
+
+.contenido th :not(pre) > code,
+.contenido td :not(pre) > code {
+  white-space: nowrap;
 }
 
 .contenido img {
   max-width: 100%;
+}
+
+/* El foco programatico sobre un encabezado no debe pintar un recuadro: no es
+   un control, solo el destino del salto. */
+.contenido :is(h1, h2, h3, h4, h5, h6):focus {
+  outline: none;
 }
 
 .contenido a[data-roto='true'] {
@@ -89,7 +201,7 @@ body {
 
 .toc {
   position: sticky;
-  top: var(--espacio-5);
+  top: var(--alto-barra);
   font-size: var(--texto-sm);
   color: var(--texto-secundario);
 }
@@ -115,16 +227,33 @@ mark {
 
 @media (max-width: 1280px) {
   .disposicion {
-    grid-template-columns: var(--ancho-sidebar) minmax(0, 1fr);
+    --columna-toc: 0px;
   }
   .toc {
+    display: none;
+  }
+  /* El control sobra si el panel no cabe en la pantalla. */
+  .barra [aria-controls='toc-documento'] {
     display: none;
   }
 }
 
 @media (max-width: 900px) {
   .disposicion {
+    --columna-sidebar: 0px;
     grid-template-columns: minmax(0, 1fr);
+  }
+  /* Con una sola columna, la asignacion explicita de la vista ancha crearia
+     una columna implicita a la derecha. */
+  .contenido {
+    grid-column: 1;
+  }
+  /* Deslizante: se muestra encima del contenido en vez de plegar su columna. */
+  .disposicion[data-sidebar='oculto'] > .sidebar {
+    display: block;
+  }
+  .disposicion[data-sidebar='visible'] > .sidebar {
+    transform: translateX(0);
   }
   .sidebar {
     position: fixed;
@@ -137,25 +266,11 @@ mark {
     transition: transform 160ms ease;
     z-index: 10;
   }
-  .sidebar[data-abierto='true'] {
-    transform: translateX(0);
-  }
-  /* Por encima del panel (z-index 10) para poder cerrarlo, y por debajo del
-     panel de busqueda (z-index 20), que es modal. */
-  .alternar-sidebar {
-    display: block;
-    position: fixed;
-    top: var(--espacio-3);
-    left: var(--espacio-3);
+  /* Por encima del panel deslizante (z-index 10) para poder cerrarlo, y por
+     debajo del panel de busqueda (z-index 20), que es modal. */
+  .barra {
+    position: relative;
     z-index: 15;
-    background: var(--fondo-elevado);
-    border: 1px solid var(--borde);
-    border-radius: var(--radio);
-    color: var(--texto-principal);
-    font-size: var(--texto-base);
-    line-height: 1;
-    padding: var(--espacio-2) var(--espacio-3);
-    cursor: pointer;
   }
   .contenido {
     padding: var(--espacio-8) var(--espacio-5) var(--espacio-5);

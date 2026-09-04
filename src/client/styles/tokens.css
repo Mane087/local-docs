@@ -24,6 +24,8 @@
   --ancho-sidebar: 280px;
   --ancho-toc: 240px;
   --ancho-lectura: 70ch;
+  /* Altura reservada por la barra fija al pegar los paneles laterales. */
+  --alto-barra: 56px;
 
   --fuente-texto: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
   --fuente-mono: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace;
