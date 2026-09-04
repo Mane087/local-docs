@@ -2,6 +2,10 @@
   "name": "@mane087/local-docs",
   "version": "0.1.3",
   "description": "Visor local de documentacion markdown, sin configuracion",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Mane087/local-docs"
+  },
   "scripts": {
     "test": "vitest run",
     "build": "npm run build:server && npm run build:client",
