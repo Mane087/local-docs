@@ -3,6 +3,7 @@ import { ApiError, fetchDoc, fetchTree } from '../api.js'
 import { collectPaths } from '../links.js'
 import { navigateTo, onRouteChange, routeFromLocation, type Route } from '../router.js'
 import type { DocResponse, TreeResponse } from '../types.js'
+import { Search } from './Search.js'
 import { Sidebar } from './Sidebar.js'
 import { Toc } from './Toc.js'
 import { Viewer } from './Viewer.js'
@@ -17,8 +18,20 @@ export function App() {
   const [arbolError, setArbolError] = useState(false)
   const [ruta, setRuta] = useState<Route>(() => routeFromLocation(window.location))
   const [documento, setDocumento] = useState<EstadoDocumento>({ estado: 'cargando' })
+  const [busquedaAbierta, setBusquedaAbierta] = useState(false)
 
   useEffect(() => onRouteChange(setRuta), [])
+
+  useEffect(() => {
+    const alPulsar = (evento: KeyboardEvent): void => {
+      if ((evento.metaKey || evento.ctrlKey) && evento.key.toLowerCase() === 'k') {
+        evento.preventDefault()
+        setBusquedaAbierta(true)
+      }
+    }
+    window.addEventListener('keydown', alPulsar)
+    return () => window.removeEventListener('keydown', alPulsar)
+  }, [])
 
   useEffect(() => {
     fetchTree()
@@ -115,6 +128,14 @@ export function App() {
           />
         ) : null}
       </nav>
+      <Search
+        abierto={busquedaAbierta}
+        onClose={() => setBusquedaAbierta(false)}
+        onSelect={(destino) => {
+          setBusquedaAbierta(false)
+          navigateTo(destino)
+        }}
+      />
     </div>
   )
 }
