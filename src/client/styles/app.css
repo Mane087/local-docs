@@ -245,7 +245,7 @@ pre.mermaid[data-error='true'] {
 .busqueda-fondo {
   position: fixed;
   inset: 0;
-  background: hsl(215 30% 10% / 0.45);
+  background: var(--superposicion-fondo);
   display: flex;
   justify-content: center;
   padding-top: 10vh;
@@ -258,7 +258,7 @@ pre.mermaid[data-error='true'] {
   overflow-y: auto;
   background: var(--fondo-elevado);
   border-radius: var(--radio);
-  box-shadow: 0 12px 32px hsl(215 30% 10% / 0.24), 0 2px 4px hsl(215 30% 10% / 0.16);
+  box-shadow: 0 12px 32px var(--sombra-fuerte), 0 2px 4px var(--sombra-suave);
   padding: var(--espacio-4);
 }
 
@@ -297,7 +297,7 @@ pre.mermaid[data-error='true'] {
   color: inherit;
 }
 
-.resultado[data-seleccionado='true'] {
+.resultado[aria-selected='true'] {
   background: var(--acento-suave);
 }
 

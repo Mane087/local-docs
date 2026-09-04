@@ -42,6 +42,10 @@
   --aviso-fondo: hsl(40 90% 94%);
   --aviso-texto: hsl(30 70% 26%);
   --error-texto: hsl(2 62% 42%);
+
+  --superposicion-fondo: hsl(215 30% 10% / 0.45);
+  --sombra-fuerte: hsl(215 30% 10% / 0.24);
+  --sombra-suave: hsl(215 30% 10% / 0.16);
 }
 
 :root[data-tema='oscuro'] {
@@ -59,4 +63,8 @@
   --aviso-fondo: hsl(35 40% 22%);
   --aviso-texto: hsl(40 80% 82%);
   --error-texto: hsl(2 70% 72%);
+
+  --superposicion-fondo: hsl(220 45% 4% / 0.6);
+  --sombra-fuerte: hsl(220 45% 4% / 0.5);
+  --sombra-suave: hsl(220 45% 4% / 0.35);
 }

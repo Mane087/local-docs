@@ -86,4 +86,49 @@ describe('Search', () => {
 
     expect(alCerrar).toHaveBeenCalled()
   })
+
+  it('muestra un estado de error cuando la peticion de busqueda falla', async () => {
+    vi.mocked(searchDocs).mockRejectedValue(new Error('fallo de red'))
+
+    render(<Search abierto onClose={() => {}} onSelect={() => {}} />)
+    fireEvent.input(screen.getByRole('searchbox'), { target: { value: 'node' } })
+
+    await waitFor(() => expect(screen.getByText(/no se pudo completar la busqueda/i)).toBeTruthy())
+  })
+
+  it('informa cuando el indice todavia no ha empezado a construirse', async () => {
+    vi.mocked(searchDocs).mockResolvedValue({ status: 'idle', results: [] })
+
+    render(<Search abierto onClose={() => {}} onSelect={() => {}} />)
+    fireEvent.input(screen.getByRole('searchbox'), { target: { value: 'node' } })
+
+    await waitFor(() => expect(screen.getByText(/indexando/i)).toBeTruthy())
+    expect(screen.queryByText(/sin resultados/i)).toBeNull()
+  })
+
+  it('expone el resultado activo en el marcado al recorrer con las flechas', async () => {
+    vi.mocked(searchDocs).mockResolvedValue(
+      respuestaBusqueda([
+        { path: 'a.md', title: 'Primero' },
+        { path: 'b.md', title: 'Segundo' },
+      ]),
+    )
+
+    render(<Search abierto onClose={() => {}} onSelect={() => {}} />)
+    const entrada = screen.getByRole('searchbox')
+    fireEvent.input(entrada, { target: { value: 'x' } })
+    await waitFor(() => expect(screen.getByText('Primero')).toBeTruthy())
+
+    const primero = screen.getByText('Primero').closest('[role="option"]') as HTMLElement
+    const segundo = screen.getByText('Segundo').closest('[role="option"]') as HTMLElement
+    expect(primero.getAttribute('aria-selected')).toBe('true')
+    expect(segundo.getAttribute('aria-selected')).toBe('false')
+    expect(entrada.getAttribute('aria-activedescendant')).toBe(primero.id)
+
+    fireEvent.keyDown(entrada, { key: 'ArrowDown' })
+
+    expect(primero.getAttribute('aria-selected')).toBe('false')
+    expect(segundo.getAttribute('aria-selected')).toBe('true')
+    expect(entrada.getAttribute('aria-activedescendant')).toBe(segundo.id)
+  })
 })
