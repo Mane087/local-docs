@@ -164,6 +164,33 @@ describe('startWatcher', () => {
     expect(resultado?.title).toBe('Titulo Original')
   })
 
+  it('actualiza el arbol y notifica al cliente cuando una edicion cambia el titulo', async () => {
+    const { raiz, tree, emitidos } = await montar({ 'doc.md': '# Titulo Original\n\nContenido.' })
+    const invalidarSpy = vi.spyOn(tree, 'invalidate')
+
+    await fs.writeFile(path.join(raiz, 'doc.md'), '# Titulo Nuevo\n\nContenido.')
+
+    await esperarEvento(emitidos, 'tree-changed')
+    expect(invalidarSpy).toHaveBeenCalled()
+    const resultado = await tree.get()
+    const nodo = resultado.nodes.find((n) => n.path === 'doc.md')
+    expect(nodo?.title).toBe('Titulo Nuevo')
+  })
+
+  it('no reconstruye el arbol completo cuando la edicion no cambia el titulo', async () => {
+    const { raiz, tree, index } = await montar({ 'doc.md': '# Titulo Fijo\n\nContenido original.' })
+    const invalidarSpy = vi.spyOn(tree, 'invalidate')
+
+    await fs.writeFile(path.join(raiz, 'doc.md'), '# Titulo Fijo\n\nContenido editado con novedades.')
+
+    // Espera a que el camino barato termine de verdad (su ultimo paso es actualizar el
+    // indice), en vez de a un tiempo fijo, antes de comprobar que nunca se invalido el
+    // arbol.
+    await esperarCondicion(() => index.search('novedades').length > 0)
+
+    expect(invalidarSpy).not.toHaveBeenCalled()
+  })
+
   it('mantiene el indice coherente ante rafagas solapadas', async () => {
     let indiceRetrasado: IndiceConRetraso | undefined
     const { raiz, index, emitidos } = await montar(

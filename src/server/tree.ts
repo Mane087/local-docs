@@ -232,6 +232,16 @@ async function construirNivel(
   return { nodos: pendientes.map((p) => p.node), indice, tituloIndice }
 }
 
+// Lee el titulo de un unico documento (frontmatter, si no el primer H1, si no
+// el nombre del archivo humanizado) sin renderizar el resto del contenido ni
+// recorrer el arbol. Usa la misma logica que construirNivel() para que un
+// llamador externo (el observador, al decidir si un cambio de contenido altero
+// el titulo) obtenga exactamente el mismo resultado que produciria buildTree().
+export async function readDocumentTitle(rutaAbsoluta: string, nombre: string): Promise<string> {
+  const metadatos = await metadatosDeDocumento(rutaAbsoluta, nombre)
+  return metadatos.title
+}
+
 export async function buildTree(root: string): Promise<TreeResult> {
   const raizReal = await fs.realpath(root)
   const visitados = new Set<string>([raizReal])

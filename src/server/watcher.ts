@@ -6,6 +6,7 @@ import type { EventHub } from './events.js'
 import { collectDocuments, type SearchIndex } from './search-index.js'
 import type { TreeProvider } from './tree-provider.js'
 import { toRelative } from './paths.js'
+import { readDocumentTitle } from './tree.js'
 
 const EXTENSIONES = new Set(['.md', '.markdown'])
 
@@ -69,19 +70,40 @@ export function startWatcher(deps: WatcherDeps): { close(): Promise<void>; ready
     }
 
     if (!estructuraAfectada) {
+      // El arbol todavia no fue invalidado en este camino (no hay alta ni baja de
+      // archivos), asi que deps.tree.get() devuelve el arbol en cache: sus titulos son
+      // validos para comparar contra el titulo real y actual de cada documento (leido
+      // directamente del archivo, sin pasar por la cache del arbol).
       const resultadoActual = await deps.tree.get()
       const titulos = new Map(
         collectDocuments(resultadoActual.nodes, resultadoActual.rootIndex, resultadoActual.rootTitle).map(
           (documento) => [documento.path, documento.title] as const,
         ),
       )
-      for (const cambio of cambios) {
-        if (EXTENSIONES.has(path.extname(cambio.relPath).toLowerCase())) {
+
+      const cambiosRelevantes = cambios.filter((cambio) => EXTENSIONES.has(path.extname(cambio.relPath).toLowerCase()))
+      let tituloCambio = false
+      for (const cambio of cambiosRelevantes) {
+        const tituloNuevo = await readDocumentTitle(
+          path.join(deps.root, cambio.relPath),
+          path.basename(cambio.relPath),
+        )
+        if (tituloNuevo !== titulos.get(cambio.relPath)) {
+          tituloCambio = true
+          break
+        }
+      }
+
+      if (!tituloCambio) {
+        for (const cambio of cambiosRelevantes) {
           const titulo = titulos.get(cambio.relPath) ?? path.basename(cambio.relPath)
           await deps.index.update(cambio.relPath, titulo)
         }
+        return
       }
-      return
+      // Algun documento cambio de titulo: cae al camino de reconstruccion completa de
+      // abajo (el mismo que un cambio estructural), que invalida el arbol ANTES de
+      // volver a leerlo para no repetir el error de obtener el titulo viejo.
     }
 
     deps.tree.invalidate()
