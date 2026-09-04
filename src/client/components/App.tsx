@@ -14,6 +14,11 @@ import { Viewer } from './Viewer.js'
 export function App() {
   const [ruta, setRuta] = useState<Route>(() => routeFromLocation(window.location))
   const [busquedaAbierta, setBusquedaAbierta] = useState(false)
+  // Por debajo de 900px el sidebar se convierte en un panel deslizable
+  // (seccion 8.6 del spec): el atributo lo lee la hoja de estilos y el boton
+  // de alternancia solo es visible en ese punto de ruptura. Por encima, el
+  // sidebar siempre esta a la vista y el atributo no tiene efecto.
+  const [sidebarAbierto, setSidebarAbierto] = useState(false)
   const [tema, setTema] = useState<Tema>(() => leerTema())
   // El indicador que recibe el visor sale de la misma llamada que escribe el
   // atributo del documento (ver `fijarTema` mas abajo), asi que las dos
@@ -67,7 +72,17 @@ export function App() {
 
   return (
     <div class="disposicion">
-      <aside class="sidebar">
+      <button
+        type="button"
+        class="alternar-sidebar"
+        aria-expanded={sidebarAbierto}
+        aria-controls="sidebar-navegacion"
+        aria-label={sidebarAbierto ? 'Cerrar navegacion' : 'Abrir navegacion'}
+        onClick={() => setSidebarAbierto((abierto) => !abierto)}
+      >
+        {sidebarAbierto ? '\u2715' : '\u2630'}
+      </button>
+      <aside id="sidebar-navegacion" class="sidebar" data-abierto={sidebarAbierto ? 'true' : 'false'}>
         <div class="sidebar-cabecera">
           <ThemeToggle tema={tema} onChange={setTema} />
           {conectado ? null : <SinConexion />}
@@ -82,7 +97,13 @@ export function App() {
             rootTitle={arbol.rootTitle}
             rootIndex={arbol.rootIndex}
             currentPath={ruta.docPath ?? arbol.defaultDoc}
-            onNavigate={(destino) => navigateTo(destino)}
+            onNavigate={(destino) => {
+              // Navegar cierra el panel: en movil el sidebar tapa el
+              // contenido, asi que dejarlo abierto ocultaria el documento
+              // recien elegido.
+              setSidebarAbierto(false)
+              navigateTo(destino)
+            }}
           />
         )}
       </aside>

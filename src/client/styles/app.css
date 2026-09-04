@@ -29,6 +29,11 @@ body {
   color: var(--texto-secundario);
 }
 
+/* Solo existe por debajo de 900px, donde el sidebar pasa a panel deslizable. */
+.alternar-sidebar {
+  display: none;
+}
+
 .contenido {
   max-width: var(--ancho-lectura);
   margin-inline: auto;
@@ -110,15 +115,36 @@ mark {
   .sidebar {
     position: fixed;
     inset: 0 auto 0 0;
-    width: var(--ancho-sidebar);
+    width: min(var(--ancho-sidebar), 85vw);
     background: var(--fondo-elevado);
-    padding: var(--espacio-5);
+    padding: var(--espacio-8) var(--espacio-5) var(--espacio-5);
+    box-shadow: 0 0 24px var(--sombra-suave);
     transform: translateX(-100%);
     transition: transform 160ms ease;
     z-index: 10;
   }
   .sidebar[data-abierto='true'] {
     transform: translateX(0);
+  }
+  /* Por encima del panel (z-index 10) para poder cerrarlo, y por debajo del
+     panel de busqueda (z-index 20), que es modal. */
+  .alternar-sidebar {
+    display: block;
+    position: fixed;
+    top: var(--espacio-3);
+    left: var(--espacio-3);
+    z-index: 15;
+    background: var(--fondo-elevado);
+    border: 1px solid var(--borde);
+    border-radius: var(--radio);
+    color: var(--texto-principal);
+    font-size: var(--texto-base);
+    line-height: 1;
+    padding: var(--espacio-2) var(--espacio-3);
+    cursor: pointer;
+  }
+  .contenido {
+    padding: var(--espacio-8) var(--espacio-5) var(--espacio-5);
   }
 }
 

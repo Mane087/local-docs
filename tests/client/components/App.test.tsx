@@ -134,4 +134,35 @@ describe('App', () => {
     await new Promise((resolve) => setTimeout(resolve, 0))
     expect(llamadasDoc()).toBe(2)
   })
+
+  it('el boton de navegacion abre y cierra el sidebar, y navegar lo cierra', async () => {
+    vi.stubGlobal('EventSource', EventSourceFalso)
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockImplementation((url: string) => {
+        if (url === '/api/tree') return Promise.resolve(respuestaFalsa(arbolFalso))
+        return Promise.resolve(respuestaFalsa(docFalso))
+      }),
+    )
+
+    const { container } = render(<App />)
+
+    const boton = screen.getByRole('button', { name: /abrir navegacion/i })
+    const panel = container.querySelector('aside.sidebar') as HTMLElement
+
+    expect(boton.getAttribute('aria-expanded')).toBe('false')
+    expect(boton.getAttribute('aria-controls')).toBe(panel.id)
+    expect(panel.getAttribute('data-abierto')).toBe('false')
+
+    fireEvent.click(boton)
+
+    expect(screen.getByRole('button', { name: /cerrar navegacion/i }).getAttribute('aria-expanded')).toBe('true')
+    expect(panel.getAttribute('data-abierto')).toBe('true')
+
+    // Navegar a un documento cierra el panel: en movil tapa el contenido.
+    await waitFor(() => expect(screen.getByRole('link', { name: 'Uso' })).toBeTruthy())
+    fireEvent.click(screen.getByRole('link', { name: 'Uso' }))
+
+    await waitFor(() => expect(panel.getAttribute('data-abierto')).toBe('false'))
+  })
 })
