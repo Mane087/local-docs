@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'preact/hooks'
+import { esClicPrimario } from '../dom.js'
 import { docUrl } from '../router.js'
 import { escribirJson, leerJson } from '../storage.js'
 import type { DirectoryNode, TreeNode } from '../types.js'
@@ -24,10 +25,6 @@ function ancestros(currentPath: string | null): string[] {
     rutas.push(acumulado)
   }
   return rutas
-}
-
-function esClicPrimario(event: MouseEvent): boolean {
-  return event.button === 0 && !event.metaKey && !event.ctrlKey && !event.shiftKey && !event.altKey
 }
 
 // Un JSON valido pero con otra forma (`{}`, `"x"`, `42`, o una lista con

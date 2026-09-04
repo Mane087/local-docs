@@ -25,16 +25,42 @@ function resolverRuta(currentPath: string, referencia: string): string | null {
   return base.length === 0 ? null : base.join('/')
 }
 
-export function resolveDocLink(currentPath: string, href: string): EnlaceResuelto | null {
+// Un href que no es externo, no es una ancla propia y no es una ruta absoluta,
+// pero cuya parte anterior al '#' tiene extension markdown. Se separa de
+// resolveDocLink para poder distinguir, en el visor, entre "esto no es un
+// enlace de documento" (externo, ancla propia, imagen) y "esto es un enlace
+// de documento que no se pudo resolver dentro de la raiz" -vease
+// esEnlaceDocumentoFueraDeRaiz.
+function referenciaMarkdown(href: string): string | null {
   if (href === '' || href.startsWith('#') || href.startsWith('/') || ESQUEMA.test(href)) return null
 
-  const [referencia, ancla] = href.split('#')
+  const [referencia] = href.split('#')
   if (referencia === undefined || referencia === '' || !MARKDOWN.test(referencia)) return null
 
+  return referencia
+}
+
+export function resolveDocLink(currentPath: string, href: string): EnlaceResuelto | null {
+  const referencia = referenciaMarkdown(href)
+  if (referencia === null) return null
+
+  const ancla = href.split('#')[1]
   const ruta = resolverRuta(currentPath, referencia)
   if (ruta === null) return null
 
   return { path: ruta, hash: ancla === undefined || ancla === '' ? null : ancla }
+}
+
+// true cuando el href apunta claramente a un documento markdown relativo
+// (por su forma y extension) pero la ruta resultante escapa de la raiz de
+// documentacion. Un enlace externo, una ancla propia o un recurso que no es
+// markdown no es "invalido": simplemente no es un enlace de documento, y
+// devuelve false igual que un enlace que si se resuelve.
+export function esEnlaceDocumentoFueraDeRaiz(currentPath: string, href: string): boolean {
+  const referencia = referenciaMarkdown(href)
+  if (referencia === null) return false
+
+  return resolverRuta(currentPath, referencia) === null
 }
 
 export function resolveAssetUrl(currentPath: string, src: string): string | null {

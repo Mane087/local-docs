@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'preact/hooks'
-import { resolveAssetUrl, resolveDocLink } from '../links.js'
+import { esClicPrimario } from '../dom.js'
+import { esEnlaceDocumentoFueraDeRaiz, resolveAssetUrl, resolveDocLink } from '../links.js'
 import { renderMermaid } from '../mermaid.js'
 import type { DocResponse } from '../types.js'
 
@@ -28,9 +29,14 @@ export function Viewer({ doc, knownPaths, darkMode, onNavigate }: Props) {
     }
 
     for (const enlace of Array.from(nodo.querySelectorAll<HTMLAnchorElement>('a[href]'))) {
-      const destino = resolveDocLink(doc.path, enlace.getAttribute('href') ?? '')
-      if (destino === null) continue
-      if (!knownPaths.has(destino.path)) {
+      const href = enlace.getAttribute('href') ?? ''
+      const destino = resolveDocLink(doc.path, href)
+      // Un enlace de documento roto tiene dos motivos posibles: apunta a una
+      // ruta bien resuelta que no existe en el arbol, o su ruta relativa
+      // escapa de la raiz y no se pudo resolver en absoluto. Ambos se marcan
+      // igual porque para quien lee el documento son el mismo problema.
+      const roto = destino !== null ? !knownPaths.has(destino.path) : esEnlaceDocumentoFueraDeRaiz(doc.path, href)
+      if (roto) {
         enlace.setAttribute('data-roto', 'true')
         enlace.setAttribute('title', 'Este documento no existe')
       }
@@ -41,15 +47,22 @@ export function Viewer({ doc, knownPaths, darkMode, onNavigate }: Props) {
 
   const alPulsar = (evento: MouseEvent): void => {
     const objetivo = (evento.target as HTMLElement).closest('a')
-    if (objetivo === null) return
+    if (objetivo === null || !esClicPrimario(evento)) return
 
     const href = objetivo.getAttribute('href') ?? ''
     const destino = resolveDocLink(doc.path, href)
-    if (destino === null) return
+    if (destino !== null) {
+      evento.preventDefault()
+      if (knownPaths.has(destino.path)) onNavigate(destino.path, destino.hash)
+      return
+    }
 
-    evento.preventDefault()
-    if (!knownPaths.has(destino.path)) return
-    onNavigate(destino.path, destino.hash)
+    // No es un enlace de documento resoluble, pero si parecia serlo (extension
+    // markdown) y su ruta escapa de la raiz: se bloquea la recarga de pagina
+    // sin navegar dentro de la aplicacion, igual que con un documento
+    // inexistente. Un enlace externo, una ancla propia o un recurso no
+    // markdown no entra aqui y conserva su comportamiento nativo.
+    if (esEnlaceDocumentoFueraDeRaiz(doc.path, href)) evento.preventDefault()
   }
 
   return (

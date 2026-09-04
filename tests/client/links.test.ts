@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest'
-import { collectPaths, resolveAssetUrl, resolveDocLink } from '../../src/client/links.js'
+import {
+  collectPaths,
+  esEnlaceDocumentoFueraDeRaiz,
+  resolveAssetUrl,
+  resolveDocLink,
+} from '../../src/client/links.js'
 import type { TreeNode } from '../../src/client/types.js'
 
 describe('resolveDocLink', () => {
@@ -44,6 +49,22 @@ describe('resolveDocLink', () => {
       path: 'guia/otro documento.md',
       hash: null,
     })
+  })
+})
+
+describe('esEnlaceDocumentoFueraDeRaiz', () => {
+  it('detecta un enlace markdown relativo que escapa de la raiz', () => {
+    expect(esEnlaceDocumentoFueraDeRaiz('guia/uso.md', '../../fuera.md')).toBe(true)
+  })
+
+  it('no marca como fuera de raiz un enlace markdown que si se resuelve', () => {
+    expect(esEnlaceDocumentoFueraDeRaiz('guia/uso.md', './otro.md')).toBe(false)
+  })
+
+  it('no marca como fuera de raiz los enlaces que no son de documento', () => {
+    expect(esEnlaceDocumentoFueraDeRaiz('guia/uso.md', 'https://ejemplo.com')).toBe(false)
+    expect(esEnlaceDocumentoFueraDeRaiz('guia/uso.md', '#seccion')).toBe(false)
+    expect(esEnlaceDocumentoFueraDeRaiz('guia/uso.md', './diagrama.png')).toBe(false)
   })
 })
 

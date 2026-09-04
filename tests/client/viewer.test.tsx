@@ -79,6 +79,44 @@ describe('Viewer', () => {
     expect(alNavegar).not.toHaveBeenCalled()
   })
 
+  it('marca como roto un enlace markdown que sale de la raiz y no deja que el navegador lo siga', () => {
+    const alNavegar = vi.fn()
+    const { container } = render(
+      <Viewer
+        doc={documento('<p><a href="../../fuera.md">fuera</a></p>')}
+        knownPaths={conocidas}
+        darkMode={false}
+        onNavigate={alNavegar}
+      />,
+    )
+
+    const enlace = container.querySelector('a') as HTMLAnchorElement
+    expect(enlace.getAttribute('data-roto')).toBe('true')
+
+    const noSePrevino = fireEvent.click(enlace)
+
+    expect(noSePrevino).toBe(false)
+    expect(alNavegar).not.toHaveBeenCalled()
+  })
+
+  it('no intercepta un clic con tecla modificadora sobre un enlace interno valido', () => {
+    const alNavegar = vi.fn()
+    const { container } = render(
+      <Viewer
+        doc={documento('<p><a href="./otro.md">otro</a></p>')}
+        knownPaths={conocidas}
+        darkMode={false}
+        onNavigate={alNavegar}
+      />,
+    )
+
+    const enlace = container.querySelector('a') as HTMLAnchorElement
+    const noSePrevino = fireEvent.click(enlace, { ctrlKey: true })
+
+    expect(noSePrevino).toBe(true)
+    expect(alNavegar).not.toHaveBeenCalled()
+  })
+
   it('reescribe las imagenes relativas hacia la ruta de recursos', () => {
     const { container } = render(
       <Viewer
