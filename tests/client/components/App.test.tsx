@@ -1,5 +1,5 @@
 // @vitest-environment happy-dom
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { fireEvent, render, screen, waitFor } from '@testing-library/preact'
 import { App } from '../../../src/client/components/App.js'
 
@@ -9,6 +9,7 @@ const { renderMermaid } = await import('../../../src/client/mermaid.js')
 
 class EventSourceFalso {
   static instancias: EventSourceFalso[] = []
+  private readonly manejadores = new Map<string, (evento: MessageEvent) => void>()
   onerror: ((evento: unknown) => void) | null = null
   onopen: ((evento: unknown) => void) | null = null
   cerrada = false
@@ -17,10 +18,16 @@ class EventSourceFalso {
     EventSourceFalso.instancias.push(this)
   }
 
-  addEventListener(): void {}
+  addEventListener(tipo: string, manejador: (evento: MessageEvent) => void): void {
+    this.manejadores.set(tipo, manejador)
+  }
 
   close(): void {
     this.cerrada = true
+  }
+
+  emitir(tipo: string, datos: unknown): void {
+    this.manejadores.get(tipo)?.(new MessageEvent(tipo, { data: JSON.stringify(datos) }))
   }
 }
 
@@ -45,6 +52,10 @@ const docFalso = {
   breadcrumb: [],
   warnings: [],
 }
+
+beforeEach(() => {
+  EventSourceFalso.instancias = []
+})
 
 afterEach(() => {
   vi.unstubAllGlobals()
@@ -86,10 +97,41 @@ describe('App', () => {
 
     await waitFor(() => expect(screen.getByText('Uso')).toBeTruthy())
     await waitFor(() => expect(vi.mocked(renderMermaid)).toHaveBeenCalled())
+
+    // La primera llamada tiene que llevar ya el valor correcto: si el estado
+    // del tema dependiera de que otro componente aplique el atributo antes,
+    // este render inicial podria pasar el valor equivocado y corregirse
+    // recien despues.
+    expect(vi.mocked(renderMermaid).mock.calls[0]?.[1]).toBe(true)
     expect(vi.mocked(renderMermaid).mock.calls.at(-1)?.[1]).toBe(true)
 
     fireEvent.click(screen.getByRole('button', { name: /tema/i }))
 
     await waitFor(() => expect(vi.mocked(renderMermaid).mock.calls.at(-1)?.[1]).toBe(false))
+  })
+
+  it('un cambio de arbol recarga el documento visible una sola vez', async () => {
+    vi.stubGlobal('EventSource', EventSourceFalso)
+    const fetchFalso = vi.fn().mockImplementation((url: string) => {
+      if (url === '/api/tree') return Promise.resolve(respuestaFalsa(arbolFalso))
+      return Promise.resolve(respuestaFalsa(docFalso))
+    })
+    vi.stubGlobal('fetch', fetchFalso)
+    const llamadasDoc = (): number =>
+      fetchFalso.mock.calls.filter(([url]: [string]) => url.startsWith('/api/doc/')).length
+
+    render(<App />)
+
+    await waitFor(() => expect(llamadasDoc()).toBe(1))
+
+    const fuente = EventSourceFalso.instancias[0] as EventSourceFalso
+    fuente.emitir('tree-changed', {})
+
+    await waitFor(() => expect(llamadasDoc()).toBe(2))
+    // Deja que se asiente cualquier microtarea pendiente: si quedara una
+    // segunda causa de recarga (por ejemplo una version incrementada ademas
+    // del arbol refrescado), aqui apareceria una tercera llamada.
+    await new Promise((resolve) => setTimeout(resolve, 0))
+    expect(llamadasDoc()).toBe(2)
   })
 })
