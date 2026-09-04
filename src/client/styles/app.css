@@ -57,6 +57,20 @@ body {
   font-size: var(--texto-sm);
 }
 
+/* Shiki emite los colores de los dos temas como variables CSS en linea
+   (--shiki-light y --shiki-dark) en lugar de un color fijo; aqui se elige
+   cual se aplica segun el atributo de tema del documento. El fondo del
+   bloque lo sigue poniendo --fondo-sutil, que ya cambia con el tema. */
+.contenido .shiki,
+.contenido .shiki span {
+  color: var(--shiki-light);
+}
+
+:root[data-tema='oscuro'] .contenido .shiki,
+:root[data-tema='oscuro'] .contenido .shiki span {
+  color: var(--shiki-dark);
+}
+
 .contenido table {
   display: block;
   overflow-x: auto;

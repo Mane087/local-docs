@@ -42,10 +42,14 @@ describe('render', () => {
     expect(resultado.html).toContain('Contenido')
   })
 
-  it('resalta los bloques de codigo con lenguaje conocido', () => {
+  it('resalta los bloques de codigo con variables de tema claro y oscuro', () => {
     const resultado = renderer.render('```js\nconst a = 1\n```')
     expect(resultado.html).toContain('<pre')
-    expect(resultado.html).toContain('style=')
+    // Los colores salen como variables CSS de los dos temas, no como un color
+    // fijo en linea: de lo contrario el tema oscuro no puede cambiarlos.
+    expect(resultado.html).toContain('--shiki-light:')
+    expect(resultado.html).toContain('--shiki-dark:')
+    expect(resultado.html).not.toContain('style="color:')
   })
 
   it('marca los bloques mermaid para el cliente sin resaltarlos', () => {

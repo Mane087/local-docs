@@ -5,6 +5,8 @@ import anchor from 'markdown-it-anchor'
 import { createHighlighter, type Highlighter } from 'shiki'
 
 const TAMANO_CABECERA = 4096
+const TEMA_CLARO = 'github-light'
+const TEMA_OSCURO = 'github-dark'
 const LENGUAJES = [
   'js', 'ts', 'tsx', 'jsx', 'json', 'bash', 'shell', 'python', 'go', 'rust',
   'java', 'sql', 'yaml', 'html', 'css', 'markdown', 'diff',
@@ -82,8 +84,13 @@ function extraerTextoPlano(tokens: Token[]): string {
 }
 
 export async function createRenderer(): Promise<Renderer> {
+  // Modo de temas duales: shiki emite variables CSS (--shiki-light/--shiki-dark)
+  // en lugar de colores fijos, y la hoja de estilos del cliente decide cual usar
+  // segun el atributo de tema del documento. Con un unico tema los estilos en
+  // linea ganaban por especificidad y los bloques de codigo quedaban en claro
+  // aunque la interfaz estuviera en oscuro.
   const highlighter: Highlighter = await createHighlighter({
-    themes: ['github-light'],
+    themes: [TEMA_CLARO, TEMA_OSCURO],
     langs: LENGUAJES,
   })
 
@@ -95,7 +102,11 @@ export async function createRenderer(): Promise<Renderer> {
         return `<pre class="mermaid">${escapar(code)}</pre>`
       }
       if (lang && highlighter.getLoadedLanguages().includes(lang)) {
-        return highlighter.codeToHtml(code, { lang, theme: 'github-light' })
+        return highlighter.codeToHtml(code, {
+          lang,
+          themes: { light: TEMA_CLARO, dark: TEMA_OSCURO },
+          defaultColor: false,
+        })
       }
       return `<pre class="code"><code>${escapar(code)}</code></pre>`
     },
