@@ -1,12 +1,13 @@
 import { afterEach, beforeAll, describe, expect, it } from 'vitest'
 import fs from 'node:fs/promises'
+import http from 'node:http'
 import os from 'node:os'
 import path from 'node:path'
 import type { AddressInfo } from 'node:net'
 import { DocumentCache } from '../../src/server/cache.js'
 import { createRenderer, type Renderer } from '../../src/server/renderer.js'
 import { SearchIndex, collectDocuments } from '../../src/server/search-index.js'
-import { createServer } from '../../src/server/server.js'
+import { createServer, hostPermitido } from '../../src/server/server.js'
 import { createTreeProvider } from '../../src/server/tree-provider.js'
 
 let renderer: Renderer
@@ -46,7 +47,7 @@ async function levantar(
   await index.build(collectDocuments(resultado.nodes, resultado.rootIndex, resultado.rootTitle))
 
   const eventos = { addClient: () => {}, emit: () => {}, closeAll: () => {} }
-  const servidor = createServer({ root: raiz, cache, index, tree, events: eventos, clientDir })
+  const servidor = createServer({ root: raiz, cache, index, tree, events: eventos, clientDir, host: '127.0.0.1' })
 
   await new Promise<void>((resolver) => servidor.listen(0, '127.0.0.1', resolver))
   const puerto = (servidor.address() as AddressInfo).port
@@ -262,5 +263,67 @@ describe('contencion de la raiz con enlaces simbolicos', () => {
     })
 
     expect((await fetch(`${base}/assets/roto.txt`)).status).toBe(404)
+  })
+})
+
+describe('validacion de la cabecera Host', () => {
+  function pedirConHost(base: string, ruta: string, host: string): Promise<{ status: number }> {
+    const url = new URL(base)
+    return new Promise((resolver, rechazar) => {
+      const peticion = http.request(
+        { host: url.hostname, port: url.port, path: ruta, method: 'GET', headers: { Host: host } },
+        (respuesta) => {
+          respuesta.resume()
+          respuesta.on('end', () => resolver({ status: respuesta.statusCode ?? 0 }))
+        },
+      )
+      peticion.on('error', rechazar)
+      peticion.end()
+    })
+  }
+
+  it('rechaza una peticion cuyo Host no corresponde a la interfaz de escucha', async () => {
+    const { base } = await levantar({ 'doc.md': '# Doc' })
+
+    // Reenlace de DNS: un dominio del atacante que resuelva a 127.0.0.1 es
+    // del mismo origen para el navegador y podria leer la API.
+    expect((await pedirConHost(base, '/api/tree', 'atacante.example')).status).toBe(403)
+    expect((await pedirConHost(base, '/api/doc/doc.md', 'atacante.example')).status).toBe(403)
+  })
+
+  it('acepta la direccion numerica y localhost cuando se escucha en la interfaz local', async () => {
+    const { base } = await levantar({ 'doc.md': '# Doc' })
+    const puerto = new URL(base).port
+
+    expect((await pedirConHost(base, '/api/tree', `127.0.0.1:${puerto}`)).status).toBe(200)
+    expect((await pedirConHost(base, '/api/tree', `localhost:${puerto}`)).status).toBe(200)
+    expect((await pedirConHost(base, '/api/tree', `[::1]:${puerto}`)).status).toBe(200)
+  })
+})
+
+describe('hostPermitido', () => {
+  it('acepta el nombre exacto de la interfaz de escucha, con y sin puerto', () => {
+    expect(hostPermitido('192.168.1.5:4180', '192.168.1.5')).toBe(true)
+    expect(hostPermitido('192.168.1.5', '192.168.1.5')).toBe(true)
+    expect(hostPermitido('mi-equipo:4180', 'mi-equipo')).toBe(true)
+  })
+
+  it('trata como equivalentes los nombres de la maquina local', () => {
+    expect(hostPermitido('localhost:4180', '127.0.0.1')).toBe(true)
+    expect(hostPermitido('127.0.0.1:4180', 'localhost')).toBe(true)
+    expect(hostPermitido('[::1]:4180', '127.0.0.1')).toBe(true)
+  })
+
+  it('rechaza cualquier otro nombre y la cabecera ausente o malformada', () => {
+    expect(hostPermitido('atacante.example:4180', '127.0.0.1')).toBe(false)
+    expect(hostPermitido('127.0.0.1@atacante.example', '127.0.0.1')).toBe(false)
+    expect(hostPermitido(undefined, '127.0.0.1')).toBe(false)
+    expect(hostPermitido('', '127.0.0.1')).toBe(false)
+    expect(hostPermitido('no es un host', '127.0.0.1')).toBe(false)
+  })
+
+  it('no valida nada cuando se escucha en todas las interfaces, que es una exposicion pedida a proposito', () => {
+    expect(hostPermitido('lo-que-sea.example', '0.0.0.0')).toBe(true)
+    expect(hostPermitido('lo-que-sea.example', '::')).toBe(true)
   })
 })

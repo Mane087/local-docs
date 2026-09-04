@@ -19,6 +19,46 @@ export interface ServerDeps {
   tree: TreeProvider
   events: EventSink
   clientDir: string
+  /** Interfaz de escucha, contra la que se valida la cabecera Host. */
+  host: string
+}
+
+// Interfaces que aceptan cualquier nombre: el usuario pidio exponer el
+// servidor, asi que no hay una unica autoridad legitima contra la que comparar.
+const CUALQUIER_INTERFAZ = new Set(['0.0.0.0', '::', '*'])
+// Nombres equivalentes de la maquina local: escuchar en 127.0.0.1 y pedir
+// http://localhost:puerto/ es uso legitimo, y al reves tambien.
+const NOMBRES_LOCALES = new Set(['localhost', '127.0.0.1', '::1'])
+
+function sinCorchetes(valor: string): string {
+  return valor.startsWith('[') && valor.endsWith(']') ? valor.slice(1, -1) : valor
+}
+
+/**
+ * Defensa contra reenlace de DNS: para el navegador, cualquier dominio que
+ * resuelva a la direccion de escucha es del mismo origen y puede leer la API.
+ * La cabecera Host si conserva el nombre que se escribio en la barra de
+ * direcciones, asi que se compara contra la interfaz de escucha y se rechaza
+ * lo que no corresponda.
+ */
+export function hostPermitido(cabecera: string | undefined, hostEscucha: string): boolean {
+  const escucha = sinCorchetes(hostEscucha).toLowerCase()
+  if (CUALQUIER_INTERFAZ.has(escucha)) return true
+  if (cabecera === undefined || cabecera === '') return false
+
+  let anfitrion: string
+  try {
+    // Se delega el troceado de host y puerto (incluida la forma [::1]:4180)
+    // en el analizador de URL en vez de partir por ':' a mano.
+    anfitrion = new URL(`http://${cabecera}`).hostname
+  } catch {
+    return false
+  }
+
+  const nombre = sinCorchetes(anfitrion).toLowerCase()
+  if (nombre === '') return false
+  if (nombre === escucha) return true
+  return NOMBRES_LOCALES.has(escucha) && NOMBRES_LOCALES.has(nombre)
 }
 
 const TIPOS_MIME: Record<string, string> = {
@@ -137,6 +177,11 @@ export function createServer(deps: ServerDeps): http.Server {
   return http.createServer(async (req, res) => {
     if (req.method !== 'GET' && req.method !== 'HEAD') {
       responderJson(res, 405, { error: 'method-not-allowed' })
+      return
+    }
+
+    if (!hostPermitido(req.headers.host, deps.host)) {
+      responderJson(res, 403, { error: 'forbidden-host' })
       return
     }
 

@@ -196,7 +196,7 @@ export async function run(
   const events = new EventHub()
   const clientDir = path.join(path.dirname(fileURLToPath(import.meta.url)), 'client')
 
-  const servidor = createServer({ root, cache, index, tree, events, clientDir })
+  const servidor = createServer({ root, cache, index, tree, events, clientDir, host: options.host })
 
   let puerto: number
   try {
