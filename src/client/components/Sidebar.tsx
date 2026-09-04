@@ -30,8 +30,19 @@ function esClicPrimario(event: MouseEvent): boolean {
   return event.button === 0 && !event.metaKey && !event.ctrlKey && !event.shiftKey && !event.altKey
 }
 
+// Un JSON valido pero con otra forma (`{}`, `"x"`, `42`, o una lista con
+// elementos que no son cadenas) se trata como estado corrupto: se descarta
+// la lista completa en vez de filtrar los elementos invalidos uno a uno. Es
+// mas simple y predecible, y evita confiar parcialmente en una estructura
+// que ya demostro no venir de esta aplicacion.
+function esListaDeCadenas(valor: unknown): valor is string[] {
+  return Array.isArray(valor) && valor.every((elemento) => typeof elemento === 'string')
+}
+
 export function Sidebar({ nodes, rootTitle, rootIndex, currentPath, onNavigate }: Props) {
-  const [abiertos, setAbiertos] = useState<string[]>(() => leerJson<string[]>(CLAVE_ABIERTOS, []))
+  const [abiertos, setAbiertos] = useState<string[]>(() =>
+    leerJson<string[]>(CLAVE_ABIERTOS, [], esListaDeCadenas),
+  )
 
   useEffect(() => {
     escribirJson(CLAVE_ABIERTOS, abiertos)

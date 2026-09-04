@@ -100,4 +100,30 @@ describe('Sidebar', () => {
 
     expect(screen.getByText('Uso')).toBeTruthy()
   })
+
+  it('ignora el estado guardado si es JSON valido pero no es una lista, y sigue funcionando', () => {
+    window.localStorage.setItem('local-docs:abiertos', JSON.stringify({}))
+
+    expect(() =>
+      render(
+        <Sidebar nodes={arbol} rootTitle={null} rootIndex={null} currentPath={null} onNavigate={() => {}} />,
+      ),
+    ).not.toThrow()
+
+    expect(screen.getByText('Guia')).toBeTruthy()
+    expect(screen.queryByText('Uso')).toBeNull()
+  })
+
+  it('ignora el estado guardado si la lista tiene elementos que no son cadenas, y sigue funcionando', () => {
+    window.localStorage.setItem('local-docs:abiertos', JSON.stringify(['guia', 42]))
+
+    expect(() =>
+      render(
+        <Sidebar nodes={arbol} rootTitle={null} rootIndex={null} currentPath={null} onNavigate={() => {}} />,
+      ),
+    ).not.toThrow()
+
+    expect(screen.getByText('Guia')).toBeTruthy()
+    expect(screen.queryByText('Uso')).toBeNull()
+  })
 })
