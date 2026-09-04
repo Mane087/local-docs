@@ -1,8 +1,7 @@
 {
   "name": "local-docs",
   "version": "0.1.0",
-  "description": "",
-  "directories": {},
+  "description": "Visor local de documentacion markdown, sin configuracion",
   "scripts": {
     "test": "vitest run",
     "build": "npm run build:server && npm run build:client",
@@ -12,8 +11,15 @@
     "prepublishOnly": "npm run build",
     "start": "node dist/cli.js"
   },
-  "keywords": [],
-  "author": "",
+  "keywords": [
+    "docs",
+    "markdown",
+    "documentacion",
+    "viewer",
+    "cli",
+    "local"
+  ],
+  "author": "Jesus Emmanuel Alaniz Mancilla <documentacion.lynxworxs@gmail.com>",
   "license": "ISC",
   "type": "module",
   "bin": {
@@ -28,6 +34,7 @@
     "@types/markdown-it": "^14.2.0",
     "@types/node": "^26.4.1",
     "happy-dom": "^20.13.2",
+    "mermaid": "^11.17.2",
     "preact": "^10.29.8",
     "typescript": "^7.0.2",
     "vite": "^8.2.2",
@@ -38,7 +45,6 @@
     "gray-matter": "^4.0.3",
     "markdown-it": "^15.0.1",
     "markdown-it-anchor": "^9.2.1",
-    "mermaid": "^11.17.2",
     "minisearch": "^7.2.0",
     "shiki": "^4.4.3"
   },
