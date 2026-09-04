@@ -4,6 +4,7 @@ import {
   esEnlaceDocumentoFueraDeRaiz,
   resolveAssetUrl,
   resolveDocLink,
+  resolveRelativeAssetLink,
 } from '../../src/client/links.js'
 import type { TreeNode } from '../../src/client/types.js'
 
@@ -80,6 +81,30 @@ describe('resolveAssetUrl', () => {
   it('deja intactas las urls absolutas', () => {
     expect(resolveAssetUrl('guia/uso.md', 'https://ejemplo.com/logo.png')).toBeNull()
     expect(resolveAssetUrl('guia/uso.md', 'data:image/png;base64,AAA')).toBeNull()
+  })
+})
+
+describe('resolveRelativeAssetLink', () => {
+  it('reescribe un enlace relativo a un fichero que no es markdown', () => {
+    expect(resolveRelativeAssetLink('guia/uso.md', './tabla.pdf')).toBe('/assets/guia/tabla.pdf')
+  })
+
+  it('resuelve el directorio padre y conserva el ancla', () => {
+    expect(resolveRelativeAssetLink('guia/uso.md', '../anexos/plan.pdf#pagina=2')).toBe(
+      '/assets/anexos/plan.pdf#pagina=2',
+    )
+  })
+
+  it('no toca enlaces externos, anclas propias, rutas absolutas ni documentos markdown', () => {
+    expect(resolveRelativeAssetLink('guia/uso.md', 'https://ejemplo.com/a.pdf')).toBeNull()
+    expect(resolveRelativeAssetLink('guia/uso.md', '#seccion')).toBeNull()
+    expect(resolveRelativeAssetLink('guia/uso.md', '/assets/guia/tabla.pdf')).toBeNull()
+    expect(resolveRelativeAssetLink('guia/uso.md', './otro.md')).toBeNull()
+    expect(resolveRelativeAssetLink('guia/uso.md', '')).toBeNull()
+  })
+
+  it('devuelve null cuando la ruta escapa de la raiz', () => {
+    expect(resolveRelativeAssetLink('guia/uso.md', '../../fuera.pdf')).toBeNull()
   })
 })
 

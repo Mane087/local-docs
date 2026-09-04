@@ -130,6 +130,41 @@ describe('Viewer', () => {
     expect(container.querySelector('img')?.getAttribute('src')).toBe('/assets/guia/imagenes/logo.png')
   })
 
+  it('reescribe los enlaces relativos a recursos que no son markdown', () => {
+    const { container } = render(
+      <Viewer
+        doc={documento(
+          '<p><a href="./tabla.pdf">tabla</a> <a href="../anexos/plan.pdf#p2">plan</a></p>',
+        )}
+        knownPaths={conocidas}
+        darkMode={false}
+        onNavigate={() => {}}
+      />,
+    )
+
+    const enlaces = Array.from(container.querySelectorAll('a'))
+    expect(enlaces[0]?.getAttribute('href')).toBe('/assets/guia/tabla.pdf')
+    expect(enlaces[0]?.getAttribute('data-roto')).toBeNull()
+    expect(enlaces[1]?.getAttribute('href')).toBe('/assets/anexos/plan.pdf#p2')
+  })
+
+  it('no reescribe enlaces externos ni anclas del propio documento', () => {
+    const { container } = render(
+      <Viewer
+        doc={documento(
+          '<p><a href="https://ejemplo.com/a.pdf">externo</a> <a href="#seccion">ancla</a></p>',
+        )}
+        knownPaths={conocidas}
+        darkMode={false}
+        onNavigate={() => {}}
+      />,
+    )
+
+    const enlaces = Array.from(container.querySelectorAll('a'))
+    expect(enlaces[0]?.getAttribute('href')).toBe('https://ejemplo.com/a.pdf')
+    expect(enlaces[1]?.getAttribute('href')).toBe('#seccion')
+  })
+
   it('muestra un aviso cuando el frontmatter es invalido', () => {
     const { container } = render(
       <Viewer

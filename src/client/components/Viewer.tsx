@@ -1,6 +1,11 @@
 import { useEffect, useRef } from 'preact/hooks'
 import { esClicPrimario } from '../dom.js'
-import { esEnlaceDocumentoFueraDeRaiz, resolveAssetUrl, resolveDocLink } from '../links.js'
+import {
+  esEnlaceDocumentoFueraDeRaiz,
+  resolveAssetUrl,
+  resolveDocLink,
+  resolveRelativeAssetLink,
+} from '../links.js'
 import { renderMermaid } from '../mermaid.js'
 import type { DocResponse } from '../types.js'
 
@@ -31,6 +36,7 @@ export function Viewer({ doc, knownPaths, darkMode, onNavigate }: Props) {
     for (const enlace of Array.from(nodo.querySelectorAll<HTMLAnchorElement>('a[href]'))) {
       const href = enlace.getAttribute('href') ?? ''
       const destino = resolveDocLink(doc.path, href)
+
       // Un enlace de documento roto tiene dos motivos posibles: apunta a una
       // ruta bien resuelta que no existe en el arbol, o su ruta relativa
       // escapa de la raiz y no se pudo resolver en absoluto. Ambos se marcan
@@ -39,7 +45,17 @@ export function Viewer({ doc, knownPaths, darkMode, onNavigate }: Props) {
       if (roto) {
         enlace.setAttribute('data-roto', 'true')
         enlace.setAttribute('title', 'Este documento no existe')
+        continue
       }
+      if (destino !== null) continue
+
+      // No es un enlace de documento: si es una referencia relativa a otro
+      // fichero de la raiz (un PDF, un descargable) se reescribe hacia la
+      // ruta de recursos, igual que las imagenes. Los enlaces externos, las
+      // anclas propias y las rutas absolutas devuelven null y no se tocan.
+      // La reescritura es idempotente: el href resultante ya es absoluto.
+      const recurso = resolveRelativeAssetLink(doc.path, href)
+      if (recurso !== null) enlace.setAttribute('href', recurso)
     }
 
     void renderMermaid(nodo, darkMode)

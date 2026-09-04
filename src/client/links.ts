@@ -72,6 +72,24 @@ export function resolveAssetUrl(currentPath: string, src: string): string | null
   return `/assets/${ruta.split('/').map(encodeURIComponent).join('/')}`
 }
 
+// Un href relativo que no apunta a un documento markdown -una imagen, un PDF,
+// un fichero descargable- se reescribe hacia la ruta de recursos del servidor,
+// igual que las imagenes. Devuelve null para enlaces externos, anclas propias,
+// rutas absolutas y referencias markdown, que conservan su tratamiento propio.
+export function resolveRelativeAssetLink(currentPath: string, href: string): string | null {
+  if (href === '' || href.startsWith('#') || href.startsWith('/') || ESQUEMA.test(href)) return null
+
+  const partes = href.split('#')
+  const referencia = partes[0] ?? ''
+  if (referencia === '' || MARKDOWN.test(referencia)) return null
+
+  const url = resolveAssetUrl(currentPath, referencia)
+  if (url === null) return null
+
+  const ancla = partes.slice(1).join('#')
+  return ancla === '' ? url : `${url}#${ancla}`
+}
+
 export function collectPaths(nodes: TreeNode[], rootIndex: string | null): Set<string> {
   const rutas = new Set<string>()
   if (rootIndex !== null) rutas.add(rootIndex)
