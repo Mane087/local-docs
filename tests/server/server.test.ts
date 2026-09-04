@@ -89,6 +89,17 @@ describe('GET /api/doc', () => {
     expect(cuerpo.breadcrumb).toEqual([{ path: 'guia', title: 'Guia' }])
   })
 
+  it('devuelve el titulo del indice de la raiz y no el nombre del archivo', async () => {
+    const { base } = await levantar({ 'index.md': '# Guia del proyecto', 'guia/uso.md': '# Uso' })
+
+    const documento = await (await fetch(`${base}/api/doc/index.md`)).json()
+    const busqueda = await (await fetch(`${base}/api/search?q=proyecto`)).json()
+
+    expect(documento.title).toBe('Guia del proyecto')
+    // Las dos vistas del mismo hecho tienen que coincidir.
+    expect(busqueda.results[0].title).toBe(documento.title)
+  })
+
   it('devuelve 404 cuando el documento no existe', async () => {
     const { base } = await levantar({ 'doc.md': '# Doc' })
 

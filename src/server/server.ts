@@ -3,9 +3,9 @@ import fs from 'node:fs/promises'
 import path from 'node:path'
 import { resolveWithinRoot, safeJoin } from './paths.js'
 import { DocumentError, type DocumentCache } from './cache.js'
-import type { SearchIndex } from './search-index.js'
+import { collectDocuments, type SearchIndex } from './search-index.js'
 import type { TreeProvider } from './tree-provider.js'
-import { findFirstDocument, type TreeNode } from './tree.js'
+import { findFirstDocument, type TreeNode, type TreeResult } from './tree.js'
 
 export interface EventSink {
   addClient(res: http.ServerResponse): void
@@ -70,19 +70,15 @@ function construirBreadcrumb(nodes: TreeNode[], relPath: string): Array<{ path: 
   return camino
 }
 
-function tituloDeDocumento(nodes: TreeNode[], relPath: string, alternativo: string): string {
-  const buscar = (lista: TreeNode[]): string | null => {
-    for (const node of lista) {
-      if (node.type === 'document' && node.path === relPath) return node.title
-      if (node.type === 'directory') {
-        if (node.indexPath === relPath) return node.title
-        const encontrado = buscar(node.children)
-        if (encontrado !== null) return encontrado
-      }
-    }
-    return null
-  }
-  return buscar(nodes) ?? alternativo
+// El titulo de un documento sale de collectDocuments, la misma funcion que
+// alimenta el indice de busqueda, para que ambas vistas no puedan discrepar.
+// La implementacion anterior recorria por su cuenta nodos e indices de
+// directorio y no encontraba el indice de la raiz, que no esta en ninguno de
+// los dos, asi que devolvia el nombre del archivo mientras la busqueda si
+// mostraba su titulo.
+function tituloDeDocumento(resultado: TreeResult, relPath: string, alternativo: string): string {
+  const documentos = collectDocuments(resultado.nodes, resultado.rootIndex, resultado.rootTitle)
+  return documentos.find((documento) => documento.path === relPath)?.title ?? alternativo
 }
 
 async function servirRecurso(res: http.ServerResponse, root: string, relPath: string): Promise<void> {
@@ -184,10 +180,11 @@ export function createServer(deps: ServerDeps): http.Server {
       if (ruta.startsWith('/api/doc/')) {
         const relPath = ruta.slice('/api/doc/'.length)
         const documento = await deps.cache.get(relPath)
-        const { nodes } = await deps.tree.get()
+        const resultado = await deps.tree.get()
+        const { nodes } = resultado
         responderJson(res, 200, {
           path: relPath,
-          title: tituloDeDocumento(nodes, relPath, path.basename(relPath)),
+          title: tituloDeDocumento(resultado, relPath, path.basename(relPath)),
           html: documento.html,
           headings: documento.headings,
           frontmatter: documento.frontmatter,
