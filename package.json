@@ -1,5 +1,5 @@
 {
-  "name": "local-docs",
+  "name": "@mane087/local-docs",
   "version": "0.1.0",
   "description": "Visor local de documentacion markdown, sin configuracion",
   "scripts": {
@@ -19,8 +19,8 @@
     "cli",
     "local"
   ],
-  "author": "Jesus Emmanuel Alaniz Mancilla <documentacion.lynxworxs@gmail.com>",
-  "license": "ISC",
+  "author": "Jesus Emmanuel Alaniz Mancilla",
+  "license": "Apache-2.0",
   "type": "module",
   "bin": {
     "local-docs": "./dist/cli.js"

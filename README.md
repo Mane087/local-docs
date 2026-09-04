@@ -5,7 +5,7 @@ Visor local de documentacion markdown, sin configuracion.
 ## Uso
 
 ```bash
-npx local-docs
+npx @mane087/local-docs
 ```
 
 Busca un directorio `docs/` en el directorio actual y, si no lo encuentra, en sus
@@ -36,3 +36,7 @@ Node.js 20.19 o superior.
 - Tema claro y oscuro.
 
 La herramienta solo lee: nunca escribe dentro de `docs/`.
+
+## Licencia
+
+Apache License 2.0. Ver [LICENSE](./LICENSE).

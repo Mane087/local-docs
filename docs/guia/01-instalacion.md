@@ -8,7 +8,7 @@ order: 1
 Requiere Node 20.19 o superior.
 
 ```bash
-npx local-docs
+npx @mane087/local-docs
 ```
 
 ## Opciones
