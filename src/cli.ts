@@ -239,9 +239,14 @@ export async function run(
     await watcher.close()
     servidor.close()
   }
-  process.on('SIGINT', () => {
-    void cerrar().then(() => process.exit(0))
-  })
+  // SIGTERM ademas de SIGINT: un gestor de procesos o un `kill` normal envian
+  // la senal de terminacion, no la de interrupcion, y sin este manejador el
+  // proceso moria sin cerrar el observador ni los clientes SSE.
+  for (const senal of ['SIGINT', 'SIGTERM'] as const) {
+    process.on(senal, () => {
+      void cerrar().then(() => process.exit(0))
+    })
+  }
 
   if (options.open) abrirNavegador(url)
 

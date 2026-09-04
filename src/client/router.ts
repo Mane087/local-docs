@@ -3,8 +3,20 @@ export interface Route {
   hash: string | null
 }
 
+// Una URL con un porcentaje invalido (por ejemplo /%E0%A4%A) hace que
+// decodeURIComponent lance: sin proteccion la excepcion sube desde el render
+// inicial y la aplicacion se queda en blanco. Se conserva el texto tal cual,
+// que el servidor ya rechaza con 400 al pedir el documento.
+function decodificar(valor: string): string {
+  try {
+    return decodeURIComponent(valor)
+  } catch {
+    return valor
+  }
+}
+
 export function routeFromLocation(location: { pathname: string; hash: string }): Route {
-  const ruta = decodeURIComponent(location.pathname).replace(/^\//, '')
+  const ruta = decodificar(location.pathname).replace(/^\//, '')
   const ancla = location.hash.replace(/^#/, '')
   return {
     docPath: ruta === '' ? null : ruta,

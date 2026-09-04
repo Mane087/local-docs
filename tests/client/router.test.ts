@@ -27,6 +27,17 @@ describe('routeFromLocation', () => {
       hash: null,
     })
   })
+
+  it('no lanza ante un porcentaje de codificacion invalido', () => {
+    // Sin proteccion, decodeURIComponent lanza desde el render inicial y la
+    // aplicacion se queda en blanco. El servidor ya devuelve 400 para esta
+    // ruta, asi que basta con conservar el texto tal cual y dejar que la
+    // peticion falle de forma controlada.
+    expect(routeFromLocation({ pathname: '/%E0%A4%A', hash: '' })).toEqual({
+      docPath: '%E0%A4%A',
+      hash: null,
+    })
+  })
 })
 
 describe('docUrl', () => {

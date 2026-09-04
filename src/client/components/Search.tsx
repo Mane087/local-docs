@@ -70,11 +70,10 @@ export function Search({ abierto, onClose, onSelect }: Props) {
   if (!abierto) return null
 
   const resultados: SearchResult[] = respuesta?.results ?? []
-  // El servidor acepta peticiones antes de arrancar la construccion del
-  // indice (`idle`) y mientras la construye (`indexing`): en ambos casos
-  // todavia no hay nada que buscar, asi que se informan con el mismo
-  // mensaje en lugar de mostrarse como "sin resultados".
-  const indiceNoListo = respuesta?.status === 'idle' || respuesta?.status === 'indexing'
+  // El servidor acepta peticiones desde antes de terminar de construir el
+  // indice: mientras esta en `indexing` no hay nada que buscar todavia, asi
+  // que se informa del estado en lugar de mostrarse como "sin resultados".
+  const indiceNoListo = respuesta?.status === 'indexing'
 
   // El foco real permanece siempre en la entrada; los resultados no son
   // focalizables por si mismos (no son <button>) sino que su seleccion se

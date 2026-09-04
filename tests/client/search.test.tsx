@@ -96,8 +96,8 @@ describe('Search', () => {
     await waitFor(() => expect(screen.getByText(/no se pudo completar la busqueda/i)).toBeTruthy())
   })
 
-  it('informa cuando el indice todavia no ha empezado a construirse', async () => {
-    vi.mocked(searchDocs).mockResolvedValue({ status: 'idle', results: [] })
+  it('informa cuando el indice todavia se esta construyendo', async () => {
+    vi.mocked(searchDocs).mockResolvedValue({ status: 'indexing', results: [] })
 
     render(<Search abierto onClose={() => {}} onSelect={() => {}} />)
     fireEvent.input(screen.getByRole('searchbox'), { target: { value: 'node' } })

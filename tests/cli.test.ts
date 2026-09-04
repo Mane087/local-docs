@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import fs from 'node:fs/promises'
 import http from 'node:http'
 import net from 'node:net'
@@ -157,5 +157,44 @@ describe('formatRootError', () => {
     })
 
     expect(mensaje).toContain('permisos')
+  })
+})
+
+describe('cierre limpio', () => {
+  it('registra el cierre para la senal de interrupcion y para la de terminacion', async () => {
+    const raiz = await fs.mkdtemp(path.join(os.tmpdir(), 'local-docs-senales-'))
+    const manejadores = new Map<string, () => void>()
+    const registrarOriginal = process.on.bind(process)
+    const espiaOn = vi.spyOn(process, 'on').mockImplementation(((senal: string, manejador: () => void) => {
+      if (senal === 'SIGINT' || senal === 'SIGTERM') {
+        manejadores.set(senal, manejador)
+        return process
+      }
+      return registrarOriginal(senal as NodeJS.Signals, manejador)
+    }) as typeof process.on)
+    const espiaExit = vi.spyOn(process, 'exit').mockImplementation((() => undefined) as never)
+
+    try {
+      const codigo = await run(['--dir', raiz, '--no-open'], {
+        cwd: raiz,
+        stdout: () => {},
+        stderr: () => {},
+      })
+
+      expect(codigo).toBe(0)
+      // Un gestor de procesos o un `kill` normal envian SIGTERM, no SIGINT:
+      // sin este manejador el proceso moria sin cerrar el observador ni los
+      // clientes SSE.
+      expect([...manejadores.keys()]).toEqual(['SIGINT', 'SIGTERM'])
+
+      // Se dispara la senal de terminacion para comprobar que hace el cierre
+      // completo (y de paso deja el puerto libre al terminar el test).
+      manejadores.get('SIGTERM')?.()
+      await vi.waitFor(() => expect(espiaExit).toHaveBeenCalledWith(0))
+    } finally {
+      espiaOn.mockRestore()
+      espiaExit.mockRestore()
+      await fs.rm(raiz, { recursive: true, force: true })
+    }
   })
 })

@@ -5,7 +5,9 @@ import type { TreeNode } from './tree.js'
 const CONTEXTO = 80
 const MAX_FRAGMENTOS = 3
 
-export type IndexStatus = 'idle' | 'indexing' | 'ready'
+// El contrato de la seccion 6.3 del spec solo admite estos dos estados: el
+// indice nace ya en construccion y pasa a listo cuando termina.
+export type IndexStatus = 'indexing' | 'ready'
 
 export interface SearchResult {
   path: string
@@ -93,7 +95,7 @@ export class SearchIndex {
   private motor = SearchIndex.crearMotor()
   private textos = new Map<string, string>()
   private titulos = new Map<string, string>()
-  private estado: IndexStatus = 'idle'
+  private estado: IndexStatus = 'indexing'
 
   constructor(private readonly cache: DocumentCache) {}
 

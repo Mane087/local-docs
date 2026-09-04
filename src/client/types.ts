@@ -48,6 +48,6 @@ export interface SearchResult {
 }
 
 export interface SearchResponse {
-  status: 'idle' | 'indexing' | 'ready'
+  status: 'indexing' | 'ready'
   results: SearchResult[]
 }

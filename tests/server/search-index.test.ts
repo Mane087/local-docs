@@ -32,11 +32,14 @@ afterEach(async () => {
 })
 
 describe('SearchIndex', () => {
-  it('empieza en estado idle y pasa a ready tras construirse', async () => {
+  it('nace en estado indexing y pasa a ready tras construirse', async () => {
     const raiz = await crearRaiz({ 'doc.md': '# Doc\n\nContenido.' })
     const index = new SearchIndex(new DocumentCache(raiz, renderer))
 
-    expect(index.status).toBe('idle')
+    // La seccion 6.3 del spec solo contempla 'indexing' y 'ready': un indice
+    // recien creado, sobre el que ya se pueden hacer peticiones, esta en
+    // construccion, no en un tercer estado sin definir.
+    expect(index.status).toBe('indexing')
     await index.build([{ path: 'doc.md', title: 'Doc' }])
     expect(index.status).toBe('ready')
   })
