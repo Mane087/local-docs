@@ -23,13 +23,17 @@ afterEach(async () => {
   }
 })
 
-async function levantar(archivos: Record<string, string>): Promise<{ base: string; raiz: string }> {
+async function levantar(
+  archivos: Record<string, string>,
+  preparar?: (raiz: string) => Promise<void>,
+): Promise<{ base: string; raiz: string }> {
   const raiz = await fs.realpath(await fs.mkdtemp(path.join(os.tmpdir(), 'local-docs-server-')))
   for (const [relativo, contenido] of Object.entries(archivos)) {
     const destino = path.join(raiz, relativo)
     await fs.mkdir(path.dirname(destino), { recursive: true })
     await fs.writeFile(destino, contenido)
   }
+  if (preparar) await preparar(raiz)
 
   const clientDir = path.join(raiz, '..', path.basename(raiz) + '-client')
   await fs.mkdir(clientDir, { recursive: true })
@@ -174,5 +178,78 @@ describe('rutas del cliente', () => {
     expect(respuesta.status).toBe(200)
     expect(respuesta.headers.get('content-type')).toContain('text/html')
     expect(await respuesta.text()).toContain('id="app"')
+  })
+})
+
+describe('contencion de la raiz con enlaces simbolicos', () => {
+  async function crearExterior(archivos: Record<string, string>): Promise<string> {
+    const fuera = await fs.realpath(await fs.mkdtemp(path.join(os.tmpdir(), 'local-docs-fuera-')))
+    for (const [relativo, contenido] of Object.entries(archivos)) {
+      await fs.writeFile(path.join(fuera, relativo), contenido)
+    }
+    limpiezas.push(async () => {
+      await fs.rm(fuera, { recursive: true, force: true })
+    })
+    return fuera
+  }
+
+  it('devuelve 403 en /assets/ para un enlace que apunta fuera de la raiz', async () => {
+    const fuera = await crearExterior({ 'secreto.txt': 'contenido privado' })
+    const { base } = await levantar({ 'doc.md': '# Doc' }, async (raiz) => {
+      await fs.symlink(path.join(fuera, 'secreto.txt'), path.join(raiz, 'escape.txt'))
+    })
+
+    const respuesta = await fetch(`${base}/assets/escape.txt`)
+
+    expect(respuesta.status).toBe(403)
+    expect(await respuesta.text()).not.toContain('contenido privado')
+  })
+
+  it('devuelve 403 en /api/doc/ para un enlace que apunta fuera de la raiz', async () => {
+    const fuera = await crearExterior({ 'secreto.md': '# Privado' })
+    const { base } = await levantar({ 'doc.md': '# Doc' }, async (raiz) => {
+      await fs.symlink(path.join(fuera, 'secreto.md'), path.join(raiz, 'escape.md'))
+    })
+
+    const respuesta = await fetch(`${base}/api/doc/escape.md`)
+
+    expect(respuesta.status).toBe(403)
+    expect(await respuesta.text()).not.toContain('Privado')
+  })
+
+  it('devuelve 403 cuando el enlace fuera de la raiz esta en un directorio anidado', async () => {
+    const fuera = await crearExterior({ 'secreto.md': '# Privado' })
+    const { base } = await levantar({ 'guia/uso.md': '# Uso' }, async (raiz) => {
+      await fs.symlink(path.join(fuera, 'secreto.md'), path.join(raiz, 'guia', 'escape.md'))
+    })
+
+    expect((await fetch(`${base}/api/doc/guia/escape.md`)).status).toBe(403)
+  })
+
+  it('sigue sirviendo un enlace cuyo destino esta dentro de la raiz', async () => {
+    const { base } = await levantar(
+      { 'real/doc.md': '# Real', 'real/imagen.svg': '<svg></svg>' },
+      async (raiz) => {
+        await fs.symlink(path.join(raiz, 'real', 'doc.md'), path.join(raiz, 'alias.md'))
+        await fs.symlink(path.join(raiz, 'real', 'imagen.svg'), path.join(raiz, 'alias.svg'))
+      },
+    )
+
+    const documento = await fetch(`${base}/api/doc/alias.md`)
+    expect(documento.status).toBe(200)
+    expect((await documento.json()).html).toContain('Real')
+
+    const recurso = await fetch(`${base}/assets/alias.svg`)
+    expect(recurso.status).toBe(200)
+    expect(recurso.headers.get('content-type')).toContain('image/svg+xml')
+    expect(await recurso.text()).toBe('<svg></svg>')
+  })
+
+  it('devuelve 404 en /assets/ para un enlace roto dentro de la raiz', async () => {
+    const { base } = await levantar({ 'doc.md': '# Doc' }, async (raiz) => {
+      await fs.symlink(path.join(raiz, 'no-existe.txt'), path.join(raiz, 'roto.txt'))
+    })
+
+    expect((await fetch(`${base}/assets/roto.txt`)).status).toBe(404)
   })
 })

@@ -1,6 +1,6 @@
 import fs from 'node:fs/promises'
 import path from 'node:path'
-import { safeJoin } from './paths.js'
+import { resolveWithinRoot } from './paths.js'
 import type { RenderedDocument, Renderer } from './renderer.js'
 
 const EXTENSIONES = new Set(['.md', '.markdown'])
@@ -40,9 +40,21 @@ export class DocumentCache {
   }
 
   async get(relPath: string): Promise<CachedDocument> {
-    const absoluto = safeJoin(this.root, relPath)
-    if (absoluto === null) throw new DocumentError('forbidden')
-    if (!EXTENSIONES.has(path.extname(absoluto).toLowerCase())) {
+    // La contencion se comprueba sobre la ruta real (resolveWithinRoot sigue
+    // los enlaces simbolicos), no solo sobre la forma lexica de relPath: de lo
+    // contrario un enlace dentro de la raiz que apunte fuera se leeria igual,
+    // porque fs.readFile si sigue el enlace.
+    const resolucion = await resolveWithinRoot(this.root, relPath)
+    if (!resolucion.ok) {
+      if (resolucion.reason === 'outside') throw new DocumentError('forbidden')
+      this.entradas.delete(relPath)
+      throw new DocumentError('not-found')
+    }
+    const absoluto = resolucion.path
+
+    // La extension se comprueba sobre la ruta pedida y no sobre el destino
+    // real: lo que decide si esto es un documento es la ruta que se sirve.
+    if (!EXTENSIONES.has(path.extname(relPath).toLowerCase())) {
       throw new DocumentError('not-found')
     }
 

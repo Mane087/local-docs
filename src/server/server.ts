@@ -1,7 +1,7 @@
 import http from 'node:http'
 import fs from 'node:fs/promises'
 import path from 'node:path'
-import { safeJoin } from './paths.js'
+import { resolveWithinRoot, safeJoin } from './paths.js'
 import { DocumentError, type DocumentCache } from './cache.js'
 import type { SearchIndex } from './search-index.js'
 import type { TreeProvider } from './tree-provider.js'
@@ -86,21 +86,28 @@ function tituloDeDocumento(nodes: TreeNode[], relPath: string, alternativo: stri
 }
 
 async function servirRecurso(res: http.ServerResponse, root: string, relPath: string): Promise<void> {
-  const absoluto = safeJoin(root, relPath)
-  if (absoluto === null) {
-    responderJson(res, 403, { error: 'forbidden' })
+  // Misma comprobacion de contencion que usan el arbol y la cache: la forma
+  // lexica de la ruta no basta, porque fs.readFile sigue los enlaces
+  // simbolicos y un enlace dentro de la raiz puede apuntar fuera de ella.
+  const resolucion = await resolveWithinRoot(root, relPath)
+  if (!resolucion.ok) {
+    if (resolucion.reason === 'outside') {
+      responderJson(res, 403, { error: 'forbidden' })
+    } else {
+      responderJson(res, 404, { error: 'not-found' })
+    }
     return
   }
 
   let contenido: Buffer
   try {
-    contenido = await fs.readFile(absoluto)
+    contenido = await fs.readFile(resolucion.path)
   } catch {
     responderJson(res, 404, { error: 'not-found' })
     return
   }
 
-  const tipo = TIPOS_MIME[path.extname(absoluto).toLowerCase()] ?? 'application/octet-stream'
+  const tipo = TIPOS_MIME[path.extname(relPath).toLowerCase()] ?? 'application/octet-stream'
   res.writeHead(200, { 'content-type': tipo, 'cache-control': 'no-store' })
   res.end(contenido)
 }

@@ -2,7 +2,7 @@ import fs from 'node:fs/promises'
 import path from 'node:path'
 import { constants, type Dirent } from 'node:fs'
 import { readHeadMetadata } from './renderer.js'
-import { safeJoin } from './paths.js'
+import { resolveRealPath } from './paths.js'
 import { compareEntries, humanizeName, stripOrderPrefix, type SortableEntry } from './titles.js'
 
 const EXTENSIONES = new Set(['.md', '.markdown'])
@@ -91,20 +91,6 @@ function elegirIndice(nombres: string[]): string | null {
   return null
 }
 
-// Resuelve el destino real de un enlace simbolico y comprueba que quede
-// contenido dentro de la raiz. Devuelve null si el enlace esta roto o si su
-// destino cae fuera de la raiz (en cuyo caso la entrada se omite).
-async function resolverDestinoDeEnlace(rutaAbsoluta: string, raizReal: string): Promise<string | null> {
-  let destinoReal: string
-  try {
-    destinoReal = await fs.realpath(rutaAbsoluta)
-  } catch {
-    return null
-  }
-  const relativoAlDestino = path.relative(raizReal, destinoReal)
-  return safeJoin(raizReal, relativoAlDestino) === null ? null : destinoReal
-}
-
 interface Clasificacion {
   esDirectorio: boolean
   esArchivo: boolean
@@ -112,7 +98,7 @@ interface Clasificacion {
 
 // Determina si una entrada del directorio (archivo, directorio o enlace
 // simbolico) debe tratarse como directorio o como archivo. Para un enlace
-// simbolico, resuelve y valida su destino con resolverDestinoDeEnlace y usa el
+// simbolico, resuelve y valida su destino con resolveRealPath y usa el
 // tipo del destino; se reutiliza tanto para elegir el documento indice de un
 // directorio como para el recorrido principal, de modo que un enlace roto o
 // fuera de la raiz se descarta de la misma forma en ambos sitios.
@@ -125,8 +111,11 @@ async function clasificarEntrada(
     return { esDirectorio: entrada.isDirectory(), esArchivo: entrada.isFile() }
   }
 
-  const destinoReal = await resolverDestinoDeEnlace(rutaAbsoluta, raizReal)
-  if (destinoReal === null) return null // enlace roto o destino fuera de la raiz
+  // resolveRealPath es la unica definicion de contencion en la raiz; la
+  // comparten tambien la cache de documentos y la ruta de recursos del
+  // servidor, de modo que el arbol y la capa HTTP no puedan discrepar.
+  const destino = await resolveRealPath(raizReal, rutaAbsoluta)
+  if (!destino.ok) return null // enlace roto o destino fuera de la raiz
 
   try {
     const estadisticas = await fs.stat(rutaAbsoluta)
