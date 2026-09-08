@@ -1,6 +1,6 @@
 {
   "name": "@mane087/local-docs",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Visor local de documentacion markdown, sin configuracion",
   "repository": {
     "type": "git",
