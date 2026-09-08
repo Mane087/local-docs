@@ -4,6 +4,8 @@ import type { SearchResponse, SearchResult } from '../types.js'
 
 interface Props {
   abierto: boolean
+  consulta: string
+  onConsultaChange(consulta: string): void
   onClose(): void
   onSelect(path: string): void
 }
@@ -14,8 +16,7 @@ function idOpcion(indice: number): string {
   return `busqueda-resultado-${indice}`
 }
 
-export function Search({ abierto, onClose, onSelect }: Props) {
-  const [consulta, setConsulta] = useState('')
+export function Search({ abierto, consulta, onConsultaChange, onClose, onSelect }: Props) {
   const [respuesta, setRespuesta] = useState<SearchResponse | null>(null)
   const [errorBusqueda, setErrorBusqueda] = useState(false)
   const [seleccionado, setSeleccionado] = useState(0)
@@ -30,7 +31,6 @@ export function Search({ abierto, onClose, onSelect }: Props) {
       disparador.current = document.activeElement
       entrada.current?.focus()
     } else {
-      setConsulta('')
       setRespuesta(null)
       setErrorBusqueda(false)
       setSeleccionado(0)
@@ -128,7 +128,7 @@ export function Search({ abierto, onClose, onSelect }: Props) {
           value={consulta}
           aria-controls={ID_LISTA}
           aria-activedescendant={resultados.length > 0 ? idOpcion(seleccionado) : undefined}
-          onInput={(evento) => setConsulta((evento.target as HTMLInputElement).value)}
+          onInput={(evento) => onConsultaChange((evento.target as HTMLInputElement).value)}
           onKeyDown={alPulsarTecla}
         />
         {/* `role="status"` + `aria-live="polite"` anuncia a lectores de

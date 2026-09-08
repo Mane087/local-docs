@@ -21,11 +21,21 @@
   --peso-fuerte: 600;
 
   --radio: 6px;
-  --ancho-sidebar: 280px;
-  --ancho-toc: 240px;
-  --ancho-lectura: 70ch;
-  /* Altura reservada por la barra fija al pegar los paneles laterales. */
-  --alto-barra: 56px;
+  --ancho-sidebar: 15vw;
+  --ancho-toc: 15vw;
+  --ancho-lectura: 1520px;
+  /* Ancho del carril que queda cuando un panel se oculta: el relleno lateral
+     a los dos lados mas el boton entero (icono, relleno y borde), de forma
+     que el control no cambia de sitio al plegar el panel. */
+  --ancho-rail: calc(var(--espacio-5) * 2 + var(--tamano-icono) + var(--espacio-2) * 2 + 2px);
+  --tamano-icono: 30px;
+  /* Los controles de la barra central son secundarios frente a los de los
+     carriles, que gobiernan la disposicion de la pantalla, asi que van mas
+     pequenos. */
+  --tamano-icono-barra: 22px;
+  /* Altura de la barra superior, que es tambien la del encabezado de cada
+     carril: los controles de las tres columnas quedan alineados. */
+  --alto-barra: 70px;
 
   --fuente-texto: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
   --fuente-mono: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace;
@@ -33,6 +43,10 @@
   --fondo: hsl(210 20% 98%);
   --fondo-elevado: hsl(0 0% 100%);
   --fondo-sutil: hsl(210 20% 94%);
+  /* Fondo de los carriles laterales y de la barra superior. En tema claro se
+     separan del lienzo central; en oscuro comparten fondo con el y solo los
+     distingue la linea divisoria. */
+  --fondo-panel: hsl(0 0% 100%);
   --borde: hsl(212 16% 87%);
   --texto-principal: hsl(213 24% 16%);
   --texto-secundario: hsl(213 12% 42%);
@@ -54,6 +68,7 @@
   --fondo: hsl(215 26% 12%);
   --fondo-elevado: hsl(215 24% 16%);
   --fondo-sutil: hsl(215 22% 20%);
+  --fondo-panel: hsl(215 26% 12%);
   --borde: hsl(215 18% 28%);
   --texto-principal: hsl(210 26% 92%);
   --texto-secundario: hsl(212 14% 70%);

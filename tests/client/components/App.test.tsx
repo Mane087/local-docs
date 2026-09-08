@@ -371,6 +371,40 @@ describe('App', () => {
     expect(screen.getByRole('button', { name: /ocultar contenido/i }).getAttribute('aria-keyshortcuts')).toBe('c')
   })
 
+  it('muestra controles iconograficos, el enlace a GitHub y abre la busqueda desde la barra', async () => {
+    vi.stubGlobal('EventSource', EventSourceFalso)
+    simularEscritorio()
+    window.localStorage.clear()
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockImplementation((url: string) => {
+        if (url === '/api/tree') return Promise.resolve(respuestaFalsa(arbolFalso))
+        if (url.startsWith('/api/search')) return Promise.resolve(respuestaFalsa({ status: 'ready', results: [] }))
+        return Promise.resolve(respuestaFalsa(docFalso))
+      }),
+    )
+
+    render(<App />)
+    const indice = screen.getByRole('button', { name: /ocultar indice/i })
+    const contenido = screen.getByRole('button', { name: /ocultar contenido/i })
+    const buscar = screen.getByRole('button', { name: /buscar en la documentacion/i })
+    const enlace = screen.getByRole('link', { name: /repositorio de local-docs en github/i })
+
+    expect(indice.querySelector('img')?.getAttribute('src')).toContain('menu.svg')
+    expect(contenido.querySelector('img')?.getAttribute('src')).toContain('contenido.svg')
+    expect(buscar.querySelector('img')?.getAttribute('src')).toContain('search.svg')
+    expect(enlace.getAttribute('href')).toBe('https://github.com/Mane087/local-docs')
+    expect(enlace.querySelector('img')?.getAttribute('src')).toContain('github.svg')
+
+    fireEvent.click(buscar)
+
+    const dialogo = await screen.findByRole('dialog', { name: /buscar en la documentacion/i })
+    const central = dialogo.querySelector('input') as HTMLInputElement
+    fireEvent.input(central, { target: { value: 'node' } })
+
+    expect(central.value).toBe('node')
+  })
+
   it('en pantalla estrecha el sidebar arranca oculto aunque la preferencia diga lo contrario', async () => {
     vi.stubGlobal('EventSource', EventSourceFalso)
     vi.stubGlobal(

@@ -1,6 +1,7 @@
 // @vitest-environment happy-dom
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { fireEvent, render, screen, waitFor } from '@testing-library/preact'
+import { useState } from 'preact/hooks'
 import { Search } from '../../src/client/components/Search.js'
 import { searchDocs } from '../../src/client/api.js'
 
@@ -22,9 +23,28 @@ function respuestaBusqueda(resultados: Array<{ path: string; title: string }>) {
   }
 }
 
+interface SearchControladaProps {
+  abierto: boolean
+  onClose(): void
+  onSelect(path: string): void
+}
+
+function SearchControlada({ abierto, onClose, onSelect }: SearchControladaProps) {
+  const [consulta, setConsulta] = useState('')
+  return (
+    <Search
+      abierto={abierto}
+      consulta={consulta}
+      onConsultaChange={setConsulta}
+      onClose={onClose}
+      onSelect={onSelect}
+    />
+  )
+}
+
 describe('Search', () => {
   it('no muestra nada cuando esta cerrado', () => {
-    const { container } = render(<Search abierto={false} onClose={() => {}} onSelect={() => {}} />)
+    const { container } = render(<SearchControlada abierto={false} onClose={() => {}} onSelect={() => {}} />)
 
     expect(container.querySelector('input')).toBeNull()
   })
@@ -32,7 +52,7 @@ describe('Search', () => {
   it('consulta al escribir y muestra los resultados con sus fragmentos', async () => {
     vi.mocked(searchDocs).mockResolvedValue(respuestaBusqueda([{ path: 'guia/uso.md', title: 'Uso' }]))
 
-    render(<Search abierto onClose={() => {}} onSelect={() => {}} />)
+    render(<SearchControlada abierto onClose={() => {}} onSelect={() => {}} />)
     fireEvent.input(screen.getByRole('searchbox'), { target: { value: 'node' } })
 
     await waitFor(() => expect(screen.getByText('Uso')).toBeTruthy())
@@ -43,7 +63,7 @@ describe('Search', () => {
   it('informa mientras el indice se esta construyendo', async () => {
     vi.mocked(searchDocs).mockResolvedValue({ status: 'indexing', results: [] })
 
-    render(<Search abierto onClose={() => {}} onSelect={() => {}} />)
+    render(<SearchControlada abierto onClose={() => {}} onSelect={() => {}} />)
     fireEvent.input(screen.getByRole('searchbox'), { target: { value: 'node' } })
 
     await waitFor(() => expect(screen.getByText(/indexando/i)).toBeTruthy())
@@ -52,7 +72,7 @@ describe('Search', () => {
   it('muestra el estado vacio cuando no hay coincidencias', async () => {
     vi.mocked(searchDocs).mockResolvedValue(respuestaBusqueda([]))
 
-    render(<Search abierto onClose={() => {}} onSelect={() => {}} />)
+    render(<SearchControlada abierto onClose={() => {}} onSelect={() => {}} />)
     fireEvent.input(screen.getByRole('searchbox'), { target: { value: 'zzz' } })
 
     await waitFor(() => expect(screen.getByText(/sin resultados/i)).toBeTruthy())
@@ -67,7 +87,7 @@ describe('Search', () => {
     )
     const alSeleccionar = vi.fn()
 
-    render(<Search abierto onClose={() => {}} onSelect={alSeleccionar} />)
+    render(<SearchControlada abierto onClose={() => {}} onSelect={alSeleccionar} />)
     const entrada = screen.getByRole('searchbox')
     fireEvent.input(entrada, { target: { value: 'x' } })
     await waitFor(() => expect(screen.getByText('Primero')).toBeTruthy())
@@ -80,7 +100,7 @@ describe('Search', () => {
 
   it('cierra con Escape', () => {
     const alCerrar = vi.fn()
-    render(<Search abierto onClose={alCerrar} onSelect={() => {}} />)
+    render(<SearchControlada abierto onClose={alCerrar} onSelect={() => {}} />)
 
     fireEvent.keyDown(screen.getByRole('searchbox'), { key: 'Escape' })
 
@@ -90,7 +110,7 @@ describe('Search', () => {
   it('muestra un estado de error cuando la peticion de busqueda falla', async () => {
     vi.mocked(searchDocs).mockRejectedValue(new Error('fallo de red'))
 
-    render(<Search abierto onClose={() => {}} onSelect={() => {}} />)
+    render(<SearchControlada abierto onClose={() => {}} onSelect={() => {}} />)
     fireEvent.input(screen.getByRole('searchbox'), { target: { value: 'node' } })
 
     await waitFor(() => expect(screen.getByText(/no se pudo completar la busqueda/i)).toBeTruthy())
@@ -99,7 +119,7 @@ describe('Search', () => {
   it('informa cuando el indice todavia se esta construyendo', async () => {
     vi.mocked(searchDocs).mockResolvedValue({ status: 'indexing', results: [] })
 
-    render(<Search abierto onClose={() => {}} onSelect={() => {}} />)
+    render(<SearchControlada abierto onClose={() => {}} onSelect={() => {}} />)
     fireEvent.input(screen.getByRole('searchbox'), { target: { value: 'node' } })
 
     await waitFor(() => expect(screen.getByText(/indexando/i)).toBeTruthy())
@@ -114,7 +134,7 @@ describe('Search', () => {
       ]),
     )
 
-    render(<Search abierto onClose={() => {}} onSelect={() => {}} />)
+    render(<SearchControlada abierto onClose={() => {}} onSelect={() => {}} />)
     const entrada = screen.getByRole('searchbox')
     fireEvent.input(entrada, { target: { value: 'x' } })
     await waitFor(() => expect(screen.getByText('Primero')).toBeTruthy())

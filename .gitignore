@@ -3,4 +3,6 @@ dist
 *.log
 .superpowers
 .claude
+.opencode
 CLAUDE.md
+private

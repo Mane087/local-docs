@@ -6,6 +6,14 @@ import { collectPaths } from '../links.js'
 import { navigateTo, onRouteChange, routeFromLocation, type Route } from '../router.js'
 import { escribirJson, leerJson } from '../storage.js'
 import { aplicarTema, guardarTema, leerTema, temaEfectivo, type Tema } from '../theme.js'
+import contenidoIconoClaro from '../../../assets/light/contenido.svg'
+import contenidoIconoOscuro from '../../../assets/dark/contenido.svg'
+import githubIconoClaro from '../../../assets/light/github.svg'
+import githubIconoOscuro from '../../../assets/dark/github.svg'
+import menuIconoClaro from '../../../assets/light/menu.svg'
+import menuIconoOscuro from '../../../assets/dark/menu.svg'
+import buscarIconoClaro from '../../../assets/light/search.svg'
+import buscarIconoOscuro from '../../../assets/dark/search.svg'
 import { Search } from './Search.js'
 import { Sidebar } from './Sidebar.js'
 import { DocumentacionNoDisponible, ErrorDocumento, EstadoVacio, SinConexion } from './States.js'
@@ -25,6 +33,7 @@ const esBooleano = (valor: unknown): valor is boolean => typeof valor === 'boole
 export function App() {
   const [ruta, setRuta] = useState<Route>(() => routeFromLocation(window.location))
   const [busquedaAbierta, setBusquedaAbierta] = useState(false)
+  const [consultaBusqueda, setConsultaBusqueda] = useState('')
   const [sidebarVisible, setSidebarVisible] = useState<boolean>(() => {
     if (window.matchMedia('(max-width: 900px)').matches) return false
     return leerJson(CLAVE_SIDEBAR, true, esBooleano)
@@ -111,109 +120,150 @@ export function App() {
     document.getElementById(ruta.hash)?.scrollIntoView()
   }, [documento, ruta.hash])
 
+  // Los SVG llevan el color escrito en el propio archivo, asi que cada icono
+  // tiene una variante por tema en vez de heredar el color del texto.
+  const menuIcono = temaOscuro ? menuIconoOscuro : menuIconoClaro
+  const contenidoIcono = temaOscuro ? contenidoIconoOscuro : contenidoIconoClaro
+  const githubIcono = temaOscuro ? githubIconoOscuro : githubIconoClaro
+  const buscarIcono = temaOscuro ? buscarIconoOscuro : buscarIconoClaro
+
   return (
     <div
       class="disposicion"
       data-sidebar={sidebarVisible ? 'visible' : 'oculto'}
       data-toc={tocVisible ? 'visible' : 'oculto'}
     >
-      <header class="barra">
-        <button
-          type="button"
-          class="alternar"
-          aria-pressed={sidebarVisible}
-          aria-controls="sidebar-navegacion"
-          aria-keyshortcuts="i"
-          title="Alternar el indice lateral (tecla I)"
-          onClick={() => setSidebarVisible((visible) => !visible)}
-        >
-          {sidebarVisible ? 'Ocultar indice' : 'Mostrar indice'}
-        </button>
-        <span class="barra-separador" />
-        <button
-          type="button"
-          class="alternar"
-          aria-pressed={tocVisible}
-          aria-controls="toc-documento"
-          aria-keyshortcuts="c"
-          title="Alternar el contenido de la pagina (tecla C)"
-          onClick={() => setTocVisible((visible) => !visible)}
-        >
-          {tocVisible ? 'Ocultar contenido' : 'Mostrar contenido'}
-        </button>
-        <ThemeToggle tema={tema} onChange={setTema} />
-      </header>
-      <aside id="sidebar-navegacion" class="sidebar">
-        <div class="sidebar-cabecera">{conectado ? null : <SinConexion />}</div>
-        {arbolError ? (
-          'No se pudo cargar el indice de documentacion.'
-        ) : arbol === null ? (
-          <p>Cargando indice...</p>
-        ) : (
-          <Sidebar
-            nodes={arbol.tree}
-            rootTitle={arbol.rootTitle}
-            rootIndex={arbol.rootIndex}
-            currentPath={ruta.docPath ?? arbol.defaultDoc}
-            onNavigate={(destino) => {
-              // En movil el sidebar tapa el contenido, asi que navegar lo
-              // cierra: dejarlo abierto ocultaria el documento recien elegido.
-              if (window.matchMedia('(max-width: 900px)').matches) setSidebarVisible(false)
-              navigateTo(destino)
-            }}
-          />
-        )}
-      </aside>
-      <main class="contenido">
-        {arbolError ? (
-          <p>No se pudo cargar el indice de documentacion.</p>
-        ) : !raizDisponible ? (
-          <DocumentacionNoDisponible />
-        ) : arbol !== null && arbol.tree.length === 0 && arbol.rootIndex === null ? (
-          <EstadoVacio root={arbol.root} />
-        ) : documento.estado === 'listo' ? (
-          <Viewer
-            doc={documento.documento}
-            knownPaths={rutasConocidas}
-            darkMode={temaOscuro}
-            onNavigate={(destino, ancla) => navigateTo(destino, ancla)}
-          />
-        ) : documento.estado === 'cargando' ? (
-          <p>Cargando documento...</p>
-        ) : (
-          <ErrorDocumento
-            codigo={documento.codigo}
-            onInicio={() => {
-              if (arbol?.defaultDoc) navigateTo(arbol.defaultDoc)
-            }}
-          />
-        )}
-      </main>
-      <nav id="toc-documento" class="toc" aria-label="Contenido del documento">
-        {documento.estado === 'listo' ? (
-          <Toc
-            headings={documento.documento.headings}
-            activeId={encabezadoActivo}
-            onSelect={(id) => {
-              const destino = document.getElementById(id)
-              // El resaltado se fija aqui y no se deja al calculo por
-              // desplazamiento: entre dos encabezados contiguos, el segundo
-              // nunca llega a alcanzar el umbral por si solo.
-              fijarEncabezadoActivo(id)
-              destino?.scrollIntoView({ behavior: 'smooth' })
-              // Sin foco real, quien navega con teclado o lector de pantalla
-              // se queda donde estaba aunque la pagina se haya desplazado.
-              destino?.focus({ preventScroll: true })
-              navigateTo(documento.documento.path, id)
-            }}
-          />
-        ) : null}
-      </nav>
+      <div class="carril carril-indice">
+        <div class="carril-cabecera">
+          <button
+            type="button"
+            class="alternar"
+            aria-label={sidebarVisible ? 'Ocultar indice' : 'Mostrar indice'}
+            aria-pressed={sidebarVisible}
+            aria-controls="sidebar-navegacion"
+            aria-keyshortcuts="i"
+            title="Alternar el indice lateral (tecla I)"
+            onClick={() => setSidebarVisible((visible) => !visible)}
+          >
+            <img class="icono" src={menuIcono} alt="" />
+          </button>
+        </div>
+        <aside id="sidebar-navegacion" class="sidebar">
+          {conectado ? null : <SinConexion />}
+          {arbolError ? (
+            'No se pudo cargar el indice de documentacion.'
+          ) : arbol === null ? (
+            <p>Cargando indice...</p>
+          ) : (
+            <Sidebar
+              nodes={arbol.tree}
+              rootTitle={arbol.rootTitle}
+              rootIndex={arbol.rootIndex}
+              currentPath={ruta.docPath ?? arbol.defaultDoc}
+              onNavigate={(destino) => {
+                // En movil el sidebar tapa el contenido, asi que navegar lo
+                // cierra: dejarlo abierto ocultaria el documento recien elegido.
+                if (window.matchMedia('(max-width: 900px)').matches) setSidebarVisible(false)
+                navigateTo(destino)
+              }}
+            />
+          )}
+        </aside>
+      </div>
+      <div class="columna-principal">
+        <header class="barra">
+          <button
+            type="button"
+            class="buscar"
+            aria-label="Buscar en la documentacion"
+            aria-keyshortcuts="Meta+K Control+K"
+            title="Buscar en la documentacion (Cmd/Ctrl + K)"
+            onClick={() => setBusquedaAbierta(true)}
+          >
+            <img class="icono" src={buscarIcono} alt="" />
+          </button>
+          <ThemeToggle tema={tema} oscuro={temaOscuro} onChange={setTema} />
+          <a
+            class="github"
+            href="https://github.com/Mane087/local-docs"
+            aria-label="Repositorio de local-docs en GitHub"
+          >
+            <img class="icono" src={githubIcono} alt="" />
+          </a>
+        </header>
+        <main class="contenido">
+          {arbolError ? (
+            <p>No se pudo cargar el indice de documentacion.</p>
+          ) : !raizDisponible ? (
+            <DocumentacionNoDisponible />
+          ) : arbol !== null && arbol.tree.length === 0 && arbol.rootIndex === null ? (
+            <EstadoVacio root={arbol.root} />
+          ) : documento.estado === 'listo' ? (
+            <Viewer
+              doc={documento.documento}
+              knownPaths={rutasConocidas}
+              darkMode={temaOscuro}
+              onNavigate={(destino, ancla) => navigateTo(destino, ancla)}
+            />
+          ) : documento.estado === 'cargando' ? (
+            <p>Cargando documento...</p>
+          ) : (
+            <ErrorDocumento
+              codigo={documento.codigo}
+              onInicio={() => {
+                if (arbol?.defaultDoc) navigateTo(arbol.defaultDoc)
+              }}
+            />
+          )}
+        </main>
+      </div>
+      <div class="carril carril-toc">
+        <div class="carril-cabecera">
+          <button
+            type="button"
+            class="alternar"
+            aria-label={tocVisible ? 'Ocultar contenido' : 'Mostrar contenido'}
+            aria-pressed={tocVisible}
+            aria-controls="toc-documento"
+            aria-keyshortcuts="c"
+            title="Alternar el contenido de la pagina (tecla C)"
+            onClick={() => setTocVisible((visible) => !visible)}
+          >
+            <img class="icono" src={contenidoIcono} alt="" />
+          </button>
+        </div>
+        <nav id="toc-documento" class="toc" aria-label="Contenido del documento">
+          {documento.estado === 'listo' ? (
+            <Toc
+              headings={documento.documento.headings}
+              activeId={encabezadoActivo}
+              onSelect={(id) => {
+                const destino = document.getElementById(id)
+                // El resaltado se fija aqui y no se deja al calculo por
+                // desplazamiento: entre dos encabezados contiguos, el segundo
+                // nunca llega a alcanzar el umbral por si solo.
+                fijarEncabezadoActivo(id)
+                destino?.scrollIntoView({ behavior: 'smooth' })
+                // Sin foco real, quien navega con teclado o lector de pantalla
+                // se queda donde estaba aunque la pagina se haya desplazado.
+                destino?.focus({ preventScroll: true })
+                navigateTo(documento.documento.path, id)
+              }}
+            />
+          ) : null}
+        </nav>
+      </div>
       <Search
         abierto={busquedaAbierta}
-        onClose={() => setBusquedaAbierta(false)}
+        consulta={consultaBusqueda}
+        onConsultaChange={setConsultaBusqueda}
+        onClose={() => {
+          setBusquedaAbierta(false)
+          setConsultaBusqueda('')
+        }}
         onSelect={(destino) => {
           setBusquedaAbierta(false)
+          setConsultaBusqueda('')
           navigateTo(destino)
         }}
       />
