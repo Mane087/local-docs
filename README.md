@@ -1,8 +1,35 @@
-# local-docs
+<p align="center">
+  <img src="assets/logo-local-docs.png" alt="logo-local-docs">
+</p>
+<p align="center">
+  Visor local de documentación Markdown, sin configuración.
+</p>
 
-Visor local de documentacion markdown, sin configuracion.
+<!-- BADGES -->
+[![npm version](https://img.shields.io/npm/v/%40mane087%2Flocal-docs?logo=npm&label=npm)](https://www.npmjs.com/package/%40mane087%2Flocal-docs)
+![Node.js](https://img.shields.io/badge/Node.js-%3E%3D20.19.0-339933?logo=node.js&logoColor=white)
+![License](https://img.shields.io/badge/license-Apache--2.0-blue)
 
-## Uso
+## Descripción
+
+Local Docs es un visor local de documentación Markdown que detecta automáticamente
+el directorio de documentos y permite consultarlo desde el navegador.
+
+## ¿Qué problema resuelve?
+
+Permite consultar documentación Markdown de un proyecto local sin configurar un
+servidor externo ni mover los archivos a otra plataforma.
+
+## Features
+
+- Detecta el directorio `docs/` en la carpeta actual o en sus directorios padre.
+- Renderiza archivos Markdown en un servidor local.
+- Incluye búsqueda y un índice lateral para navegar la documentación.
+- Abre automáticamente el navegador al iniciar.
+- Permite configurar la ruta de documentación, el puerto y la interfaz de escucha.
+- Incluye atajos de teclado para controlar la búsqueda, el índice y el contenido.
+
+## Cómo usar
 
 ```bash
 npx @mane087/local-docs
@@ -11,44 +38,42 @@ npx @mane087/local-docs
 Busca un directorio `docs/` en el directorio actual y, si no lo encuentra, en sus
 directorios padre. Levanta un servidor en `http://127.0.0.1:4180` y abre el navegador.
 
-## Requisitos
+### Requisitos
 
 Node.js 20.19 o superior.
 
-## Opciones
+### Opciones
 
 ```
---dir <ruta>    Fuerza la raiz de documentacion
---port <n>      Puerto preferido (por omision 4180)
---host <host>   Interfaz de escucha (por omision 127.0.0.1)
+--dir <ruta>    Fuerza la raíz de documentación
+--port <n>      Puerto preferido (por omisión 4180)
+--host <host>   Interfaz de escucha (por omisión 127.0.0.1)
 --no-open       No abre el navegador
---version       Muestra la version
+--version       Muestra la versión
 --help          Muestra la ayuda
 ```
 
-## Que hace
+### Atajos de teclado
 
-- Sidebar con la estructura de `docs/`, con titulos tomados del frontmatter, del
-  primer encabezado o del nombre del archivo.
-- Renderizado de markdown con resaltado de sintaxis, tablas, imagenes y diagramas Mermaid.
-- Busqueda full-text sobre el contenido.
-- Recarga automatica al modificar los archivos.
-- Tema claro y oscuro.
-
-La herramienta solo lee: nunca escribe dentro de `docs/`.
-
-## Atajos de teclado
-
-| Tecla | Efecto |
-|---|---|
-| `Cmd/Ctrl + K` | Abrir la busqueda |
-| `I` | Mostrar u ocultar el indice lateral |
-| `C` | Mostrar u ocultar el contenido de la pagina |
+| Tecla          | Efecto                                      |
+| -------------- | ------------------------------------------- |
+| `Cmd/Ctrl + K` | Abrir la busqueda                           |
+| `I`            | Mostrar u ocultar el indice lateral         |
+| `C`            | Mostrar u ocultar el contenido de la pagina |
 
 Las teclas sueltas se ignoran mientras escribes en un campo de texto y cuando
 llevan una tecla modificadora, para no pisar los atajos del navegador ni los
 del sistema. Funcionan igual en Windows, Linux y macOS.
 
-## Licencia
+## Instalación local
 
-Apache License 2.0. Ver [LICENSE](./LICENSE).
+Para instalar y ejecutar el proyecto desde el código fuente:
+
+```bash
+npm install
+npm run build
+npm start
+```
+
+El comando `start` inicia el servidor usando la documentación del directorio
+actual o la que se encuentre en sus directorios padre.
