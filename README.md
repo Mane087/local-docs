@@ -1,14 +1,22 @@
 <p align="center">
-  <img src="assets/logo-local-docs.png" alt="logo-local-docs">
+  <img src="assets/local-docs.svg" alt="local-docs">
 </p>
 <p align="center">
   Visor local de documentación Markdown, sin configuración.
 </p>
 
 <!-- BADGES -->
-[![npm version](https://img.shields.io/npm/v/%40mane087%2Flocal-docs?logo=npm&label=npm)](https://www.npmjs.com/package/%40mane087%2Flocal-docs)
-![Node.js](https://img.shields.io/badge/Node.js-%3E%3D20.19.0-339933?logo=node.js&logoColor=white)
-![License](https://img.shields.io/badge/license-Apache--2.0-blue)
+<p align="center">
+    <a title="Apache-2.0" href="LICENSE">
+       <img src="https://img.shields.io/badge/license-Apache--2.0-blue" alt="Apache-2.0" />
+    </a>
+    <a title="npm version" href="https://www.npmjs.com/package/%40mane087%2Flocal-docs">
+       <img src="https://img.shields.io/npm/v/%40mane087%2Flocal-docs?logo=npm&label=npm" alt="npm version" />
+    </a>
+    <a title="node.js" href="https://nodejs.org">
+       <img src="https://img.shields.io/badge/Node.js-%3E%3D20.19.0-339933?logo=node.js&logoColor=white" alt="node.js" />
+    </a>
+</p>
 
 ## Descripción
 
