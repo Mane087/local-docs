@@ -46,6 +46,11 @@ jobs:
       - name: Test
         run: npm test
 
-      # prepublishOnly ejecuta npm run build antes de publicar.
+      # El build debe existir antes de npm publish: npm valida package.json
+      # (incluido bin) antes de ejecutar prepublishOnly y, si dist/cli.js no
+      # existe en ese momento, elimina el bin del paquete publicado.
+      - name: Build
+        run: npm run build
+
       - name: Publish
         run: npm publish --provenance --access public
