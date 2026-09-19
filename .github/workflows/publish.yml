@@ -31,8 +31,9 @@ jobs:
           TAG: ${{ github.event.release.tag_name }}
         run: |
           PKG_VERSION="$(node -p "require('./package.json').version")"
-          if [ "$TAG" != "v$PKG_VERSION" ]; then
-            echo "El tag del release ($TAG) no coincide con package.json (v$PKG_VERSION)"
+          # Se acepta el tag con o sin prefijo v (v0.2.2 o 0.2.2).
+          if [ "${TAG#v}" != "$PKG_VERSION" ]; then
+            echo "El tag del release ($TAG) no coincide con package.json ($PKG_VERSION)"
             exit 1
           fi
 
