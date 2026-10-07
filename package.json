@@ -42,7 +42,7 @@
     "preact": "^10.29.8",
     "typescript": "^7.0.2",
     "vite": "^8.2.2",
-    "vitest": "^4.1.11"
+    "vitest": "^5.0.1"
   },
   "dependencies": {
     "chokidar": "^5.0.0",
