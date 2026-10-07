@@ -48,7 +48,7 @@
     "chokidar": "^5.0.0",
     "gray-matter": "^4.0.3",
     "markdown-it": "^15.0.1",
-    "markdown-it-anchor": "^9.2.1",
+    "markdown-it-anchor": "^10.0.0",
     "minisearch": "^7.2.0",
     "shiki": "^4.4.3"
   },
