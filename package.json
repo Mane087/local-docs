@@ -37,7 +37,7 @@
     "@testing-library/preact": "^3.2.4",
     "@types/markdown-it": "^14.2.0",
     "@types/node": "^26.4.1",
-    "happy-dom": "^20.13.2",
+    "happy-dom": "^21.0.4",
     "mermaid": "^11.17.2",
     "preact": "^10.29.8",
     "typescript": "^7.0.2",
